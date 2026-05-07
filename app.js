@@ -346,22 +346,43 @@ async function send() {
   const matched = libraryLookup(input, lib);
   const promptWithContext = buildPromptWithContext(state.systemPrompt, matched);
 
+  // Build fallback chain: try primary model; if it 503s, try the other model once.
+  const primary = state.model;
+  const fallback = primary === 'gemini-2.5-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
+  const chain = [primary, fallback];
+  let lastErr = null;
+  let triedModels = [];
+
   try {
-    const result = await callGeminiWithRetry({
-      apiKey: state.apiKey,
-      model: state.model,
-      systemPrompt: promptWithContext,
-      input,
-    });
-    setStatus(null);
-    if (!result.parsed || !Array.isArray(result.parsed.rows)) {
-      setStatus('Gemini returned non-JSON or wrong shape. Raw output below — try rephrasing or switching model in Settings.', 'error');
-      renderRawFallback(result.raw);
-      return;
+    for (let i = 0; i < chain.length; i++) {
+      const model = chain[i];
+      triedModels.push(model);
+      if (i > 0) setStatus(`${chain[0]} overloaded — falling back to ${model}…`, 'info');
+      try {
+        const result = await callGeminiWithRetry({
+          apiKey: state.apiKey,
+          model,
+          systemPrompt: promptWithContext,
+          input,
+        });
+        setStatus(null);
+        if (!result.parsed || !Array.isArray(result.parsed.rows)) {
+          setStatus(`Gemini (${model}) returned non-JSON or wrong shape. Raw output below — try rephrasing or switching model in Settings.`, 'error');
+          renderRawFallback(result.raw);
+          return;
+        }
+        renderPreview(result.parsed);
+        return;
+      } catch (e) {
+        lastErr = e;
+        // Only fall back on transient 5xx; bail on auth / quota / format errors.
+        const transient = !e.status || (e.status >= 500 && e.status <= 504);
+        if (!transient || e.finishReason) throw e;
+      }
     }
-    renderPreview(result.parsed);
+    throw lastErr;
   } catch (e) {
-    setStatus(formatError(e) + ' (Tried 3 times.)', 'error');
+    setStatus(formatError(e) + ` (Tried ${triedModels.join(', ')}.)`, 'error');
   } finally {
     els.sendBtn.disabled = false;
   }
