@@ -12,6 +12,8 @@ const KEY_MODEL = `${STORAGE_PREFIX}_model`;
 const KEY_PROMPT = `${STORAGE_PREFIX}_systemPrompt`;
 const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
+const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
+const KEY_TARGET = `${STORAGE_PREFIX}_targetKcalByDate`;
 
 const SUPPORTED_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
@@ -117,6 +119,10 @@ function loadLibrary() { return safeLS.getJSON(KEY_LIBRARY, []); }
 function saveLibrary(lib) { safeLS.setJSON(KEY_LIBRARY, lib); }
 function loadDaily() { return safeLS.getJSON(KEY_DAILY, {}); }
 function saveDaily(d) { safeLS.setJSON(KEY_DAILY, d); }
+function loadHistory() { return safeLS.getJSON(KEY_HISTORY, []); }
+function saveHistory(h) { safeLS.setJSON(KEY_HISTORY, h); }
+function loadTargets() { return safeLS.getJSON(KEY_TARGET, {}); }
+function saveTargets(t) { safeLS.setJSON(KEY_TARGET, t); }
 
 // ============ Utilities ============
 
@@ -318,7 +324,14 @@ const els = {
   logBtn: $('#fl-log-btn'),
   dailyDate: $('#fl-daily-date'),
   dailyTable: $('#fl-daily-table'),
+  targetInput: $('#fl-target-input'),
+  logDayBtn: $('#fl-log-day-btn'),
+  exportDailyBtn: $('#fl-export-daily-btn'),
   clearDayBtn: $('#fl-clear-day-btn'),
+  historyTable: $('#fl-history-table'),
+  historyEmpty: $('#fl-history-empty'),
+  exportHistoryBtn: $('#fl-export-history-btn'),
+  clearHistoryBtn: $('#fl-clear-history-btn'),
   libraryCount: $('#fl-library-count'),
   libraryClear: $('#fl-library-clear'),
   libraryTable: $('#fl-library-table'),
@@ -689,6 +702,13 @@ function renderDaily() {
   const date = todayISO();
   els.dailyDate.textContent = date;
 
+  // Sync target input with stored target for today
+  const targets = loadTargets();
+  const t = targets[date];
+  if (els.targetInput && document.activeElement !== els.targetInput) {
+    els.targetInput.value = t == null || t === '' ? '' : String(t);
+  }
+
   const all = loadDaily();
   const day = all[date] || blankDay();
 
@@ -779,30 +799,33 @@ function renderDaily() {
   });
   tbody.appendChild(trTotal);
 
-  // Target row (blank in V1)
+  // Target row — only kcal is tracked in V1; other macros remain blank.
+  const targetKcal = t == null || t === '' ? null : num(t);
   const trTarget = document.createElement('tr');
   trTarget.classList.add('fl-target-row');
   const tdT = document.createElement('td');
   tdT.textContent = 'Target';
   trTarget.appendChild(tdT);
-  NUMERIC_COLS.forEach(() => {
+  NUMERIC_COLS.forEach((k) => {
     const td = document.createElement('td');
     td.classList.add('fl-num');
-    td.textContent = '—';
+    td.textContent = k === 'kcal' && targetKcal != null ? fmtNum(targetKcal, 0) : '—';
     trTarget.appendChild(td);
   });
   tbody.appendChild(trTarget);
 
-  // Remain row (blank in V1)
+  // Remain row — kcal only.
   const trRemain = document.createElement('tr');
   trRemain.classList.add('fl-remain-row');
   const tdR = document.createElement('td');
   tdR.textContent = 'Remain';
   trRemain.appendChild(tdR);
-  NUMERIC_COLS.forEach(() => {
+  NUMERIC_COLS.forEach((k) => {
     const td = document.createElement('td');
     td.classList.add('fl-num');
-    td.textContent = '—';
+    td.textContent = k === 'kcal' && targetKcal != null
+      ? fmtNum(targetKcal - dayTotal.kcal, 0)
+      : '—';
     trRemain.appendChild(td);
   });
   tbody.appendChild(trRemain);
@@ -820,7 +843,7 @@ els.clearDayBtn.addEventListener('click', () => {
 
 // ============ Library tab ============
 
-const LIB_COLS = ['item', 'brand', 'qty', 'unit', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
+const LIB_COLS = ['item', 'qty', 'unit', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
 
 function renderLibrary() {
   const lib = loadLibrary();
@@ -854,7 +877,7 @@ function renderLibrary() {
     LIB_COLS.forEach((c) => {
       const td = document.createElement('td');
       const v = entry[c];
-      if (c === 'item' || c === 'brand' || c === 'unit') {
+      if (c === 'item' || c === 'unit') {
         td.textContent = String(v ?? '');
       } else if (c === 'qty') {
         td.classList.add('fl-num');
@@ -889,10 +912,206 @@ els.libraryClear.addEventListener('click', () => {
   renderLibrary();
 });
 
+// ============ Target input ============
+
+els.targetInput.addEventListener('input', () => {
+  const date = todayISO();
+  const targets = loadTargets();
+  const v = els.targetInput.value.trim();
+  if (v === '') delete targets[date];
+  else targets[date] = num(v);
+  saveTargets(targets);
+  renderDaily();
+});
+
+// ============ Food History ============
+
+const HIST_COLS = ['date', 'target', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
+
+function dayTotals(day) {
+  const t = { kcal: 0, p: 0, f: 0, c: 0, su: 0, fb: 0 };
+  MEAL_SLOTS.forEach((slot) => {
+    const sub = sumItems((day[slot] && day[slot].items) || []);
+    NUMERIC_COLS.forEach((k) => { t[k] += sub[k]; });
+  });
+  return t;
+}
+
+function logDay() {
+  const date = todayISO();
+  const all = loadDaily();
+  const day = all[date] || blankDay();
+  const totals = dayTotals(day);
+
+  const targets = loadTargets();
+  const target = targets[date];
+
+  const hasAny = NUMERIC_COLS.some((k) => totals[k] > 0);
+  if (!hasAny && (target == null || target === '')) {
+    setStatus('Nothing to snapshot — log meals or set a target first.', 'error');
+    setTimeout(() => setStatus(null), 2500);
+    return;
+  }
+
+  const entry = {
+    date,
+    target: target == null || target === '' ? null : num(target),
+    kcal: totals.kcal,
+    p: totals.p,
+    f: totals.f,
+    c: totals.c,
+    su: totals.su,
+    fb: totals.fb,
+    savedAt: new Date().toISOString(),
+  };
+
+  const hist = loadHistory();
+  const idx = hist.findIndex((h) => h.date === date);
+  if (idx >= 0) hist[idx] = entry; else hist.push(entry);
+  hist.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  saveHistory(hist);
+
+  renderHistory();
+  setStatus(`Snapshot saved for ${date}.`, 'info');
+  setTimeout(() => setStatus(null), 2500);
+}
+
+function renderHistory() {
+  const hist = loadHistory();
+  const tbl = els.historyTable;
+  tbl.innerHTML = '';
+
+  if (!hist.length) {
+    els.historyEmpty.hidden = false;
+    return;
+  }
+  els.historyEmpty.hidden = true;
+
+  const thead = document.createElement('thead');
+  const trh = document.createElement('tr');
+  HIST_COLS.forEach((c) => {
+    const th = document.createElement('th');
+    th.textContent = c === 'target' ? 'target kcal' : c;
+    if (c !== 'date') th.classList.add('fl-num');
+    trh.appendChild(th);
+  });
+  const thDel = document.createElement('th');
+  trh.appendChild(thDel);
+  thead.appendChild(trh);
+  tbl.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  hist.forEach((entry) => {
+    const tr = document.createElement('tr');
+    HIST_COLS.forEach((c) => {
+      const td = document.createElement('td');
+      const v = entry[c];
+      if (c === 'date') {
+        td.textContent = String(v ?? '');
+      } else if (c === 'target') {
+        td.classList.add('fl-num');
+        td.textContent = v == null || v === '' ? '—' : fmtNum(v, 0);
+      } else {
+        td.classList.add('fl-num');
+        td.textContent = c === 'kcal' ? fmtNum(v, 0) : fmtNum(v, 1);
+      }
+      tr.appendChild(td);
+    });
+    const tdDel = document.createElement('td');
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'fl-row-del-btn';
+    del.textContent = '×';
+    del.title = 'Delete snapshot';
+    del.addEventListener('click', () => {
+      const cur = loadHistory().filter((h) => h.date !== entry.date);
+      saveHistory(cur);
+      renderHistory();
+    });
+    tdDel.appendChild(del);
+    tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+}
+
+els.logDayBtn.addEventListener('click', logDay);
+els.clearHistoryBtn.addEventListener('click', () => {
+  if (!confirm('Clear all Food History snapshots? This cannot be undone.')) return;
+  saveHistory([]);
+  renderHistory();
+});
+
+// ============ CSV export ============
+
+function csvEscape(v) {
+  if (v == null) return '';
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadCSV(filename, rows) {
+  const csv = rows.map((r) => r.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportDailyCSV() {
+  const date = todayISO();
+  const all = loadDaily();
+  const day = all[date] || blankDay();
+  const targets = loadTargets();
+  const target = targets[date];
+
+  const rows = [['date', 'meal', 'item', ...NUMERIC_COLS]];
+  MEAL_SLOTS.forEach((slot) => {
+    const items = (day[slot] && day[slot].items) || [];
+    items.forEach((it) => {
+      rows.push([date, MEAL_LABELS[slot], it.item,
+        fmtNum(it.kcal, 0), fmtNum(it.p, 1), fmtNum(it.f, 1),
+        fmtNum(it.c, 1), fmtNum(it.su, 1), fmtNum(it.fb, 1)]);
+    });
+  });
+  const totals = dayTotals(day);
+  rows.push([date, 'Total', '',
+    fmtNum(totals.kcal, 0), fmtNum(totals.p, 1), fmtNum(totals.f, 1),
+    fmtNum(totals.c, 1), fmtNum(totals.su, 1), fmtNum(totals.fb, 1)]);
+  rows.push([date, 'Target', '',
+    target == null || target === '' ? '' : fmtNum(target, 0),
+    '', '', '', '', '']);
+
+  downloadCSV(`fitlog_daily_${date}.csv`, rows);
+}
+
+function exportHistoryCSV() {
+  const hist = loadHistory();
+  const rows = [['date', 'target_kcal', 'kcal', 'p', 'f', 'c', 'su', 'fb']];
+  hist.forEach((e) => {
+    rows.push([
+      e.date,
+      e.target == null || e.target === '' ? '' : fmtNum(e.target, 0),
+      fmtNum(e.kcal, 0), fmtNum(e.p, 1), fmtNum(e.f, 1),
+      fmtNum(e.c, 1), fmtNum(e.su, 1), fmtNum(e.fb, 1),
+    ]);
+  });
+  downloadCSV('fitlog_food_history.csv', rows);
+}
+
+els.exportDailyBtn.addEventListener('click', exportDailyCSV);
+els.exportHistoryBtn.addEventListener('click', exportHistoryCSV);
+
 // ============ Init ============
 
 showTab('logging');
 renderDaily();
+renderHistory();
 renderLibrary();
 
 console.info('[fitlog] mounted', { date: todayISO(), libraryCount: loadLibrary().length });

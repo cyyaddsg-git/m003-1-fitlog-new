@@ -45,17 +45,39 @@
       <label><input type="radio" name="fl-meal" value="lunch" /> Lunch</label>
       <label><input type="radio" name="fl-meal" value="dinner" /> Dinner</label>
       <label><input type="radio" name="fl-meal" value="snack" /> Snack</label>
-      <button type="button" class="fl-log-btn" id="fl-log-btn">Log</button>
+      <button type="button" class="fl-log-btn" id="fl-log-btn">Log Meal</button>
     </div>
   </section>
 
   <!-- Daily Log -->
   <section class="fl-daily">
     <h2>Daily Log <span class="fl-daily-date" id="fl-daily-date"></span></h2>
+    <div class="fl-daily-target-row">
+      <label class="fl-target-input-label">Target kcal
+        <input type="number" id="fl-target-input" min="0" step="1" placeholder="—" />
+      </label>
+    </div>
     <div class="fl-table-wrap">
       <table class="fl-table fl-daily-table" id="fl-daily-table"></table>
     </div>
-    <button type="button" class="fl-clear-day-btn" id="fl-clear-day-btn">Clear today</button>
+    <div class="fl-daily-actions">
+      <button type="button" class="fl-log-day-btn" id="fl-log-day-btn">Log Day</button>
+      <button type="button" class="fl-export-btn" id="fl-export-daily-btn">Export CSV</button>
+      <button type="button" class="fl-clear-day-btn" id="fl-clear-day-btn">Clear today</button>
+    </div>
+  </section>
+
+  <!-- Food History -->
+  <section class="fl-history">
+    <h2>Food History</h2>
+    <div class="fl-table-wrap">
+      <table class="fl-table fl-history-table" id="fl-history-table"></table>
+    </div>
+    <p class="fl-empty" id="fl-history-empty" hidden>No days logged yet — press “Log Day” to snapshot today’s totals.</p>
+    <div class="fl-history-actions">
+      <button type="button" class="fl-export-btn" id="fl-export-history-btn">Export CSV</button>
+      <button type="button" class="fl-clear-history-btn" id="fl-clear-history-btn">Clear history</button>
+    </div>
   </section>
 
 </section>

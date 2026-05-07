@@ -300,6 +300,79 @@ main, .fl-app-header, .fl-tabs {
 }
 .fl-clear-day-btn:hover { border-color: var(--fl-error); }
 
+.fl-daily-target-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.fl-target-input-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fl-muted);
+}
+.fl-target-input-label input[type="number"] {
+  width: 90px;
+  padding: 4px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+}
+.fl-daily-actions, .fl-history-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.fl-log-day-btn {
+  background: var(--fl-accent);
+  color: var(--fl-accent-fg);
+  border: 1px solid var(--fl-accent);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.fl-log-day-btn:hover { filter: brightness(1.05); }
+.fl-export-btn {
+  background: transparent;
+  color: var(--fl-fg);
+  border: 1px solid var(--fl-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fl-export-btn:hover { background: var(--fl-bg-subtle); border-color: var(--fl-fg); }
+.fl-clear-history-btn {
+  background: transparent;
+  color: var(--fl-error);
+  border: 1px solid var(--fl-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fl-clear-history-btn:hover { border-color: var(--fl-error); }
+
+.fl-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 24px;
+}
+.fl-history h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
 /* Library */
 .fl-library-header {
   display: flex;
