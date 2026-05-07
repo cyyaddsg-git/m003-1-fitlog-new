@@ -14,7 +14,6 @@ const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_LIBRARY_SEED = `${STORAGE_PREFIX}_librarySeedVersion`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
 const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
-const KEY_TARGET = `${STORAGE_PREFIX}_targetKcalByDate`;
 
 const SUPPORTED_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
@@ -81,7 +80,8 @@ Rules:
 - c is total carb (sugar is a subset, fiber is included; net carb = c - fb).
 - The last row MUST be {"item":"Total", ...} with column-wise sums.
 - For skips like "skip eat 80%", reflect actual eaten portion in numbers AND label (e.g. "anchovies, ate 20%").
-- Item labels in English. Include qty/unit in the label (e.g. "nasi 150g").
+- Item labels in English. Every non-Total item label MUST include the exact serving amount used for that row's nutrition values.
+- Prefer measurable serving units such as g or ml whenever the food or drink can be measured that way (e.g. "nasi 150g", "kopitiam teh c kosong 250ml"). The serving amount in the label must be the same serving basis used for kcal/p/f/c/su/fb.
 - No additional columns. No markdown. JSON only.
 
 Library priority:
@@ -260,8 +260,6 @@ function loadDaily() { return safeLS.getJSON(KEY_DAILY, {}); }
 function saveDaily(d) { safeLS.setJSON(KEY_DAILY, d); }
 function loadHistory() { return safeLS.getJSON(KEY_HISTORY, []); }
 function saveHistory(h) { safeLS.setJSON(KEY_HISTORY, h); }
-function loadTargets() { return safeLS.getJSON(KEY_TARGET, {}); }
-function saveTargets(t) { safeLS.setJSON(KEY_TARGET, t); }
 
 // ============ Utilities ============
 
@@ -464,7 +462,6 @@ const els = {
   logBtn: $('#fl-log-btn'),
   dailyDate: $('#fl-daily-date'),
   dailyTable: $('#fl-daily-table'),
-  targetInput: $('#fl-target-input'),
   logDayBtn: $('#fl-log-day-btn'),
   exportDailyBtn: $('#fl-export-daily-btn'),
   clearDayBtn: $('#fl-clear-day-btn'),
@@ -709,12 +706,19 @@ function renderPreview(parsed) {
     });
     const tdAdd = document.createElement('td');
     if (!isTotal) {
+      const isLibraryRow = /^\s*\[lib\]/i.test(String(r.item ?? ''));
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'fl-row-add-btn';
-      btn.textContent = '+ Library';
-      btn.title = 'Add this item to Library';
-      btn.addEventListener('click', () => addRowToLibrary(r, btn));
+      if (isLibraryRow) {
+        btn.textContent = 'In Library';
+        btn.title = 'This item is already from Library';
+        btn.disabled = true;
+      } else {
+        btn.textContent = '+ Library';
+        btn.title = 'Add this item to Library';
+        btn.addEventListener('click', () => addRowToLibrary(r, btn));
+      }
       tdAdd.appendChild(btn);
     }
     tr.appendChild(tdAdd);
@@ -1042,20 +1046,6 @@ els.libraryClear.addEventListener('click', () => {
   saveLibrary([]);
   renderLibrary();
 });
-
-// ============ Target input ============
-
-if (els.targetInput) {
-  els.targetInput.addEventListener('input', () => {
-    const date = todayISO();
-    const targets = loadTargets();
-    const v = els.targetInput.value.trim();
-    if (v === '') delete targets[date];
-    else targets[date] = num(v);
-    saveTargets(targets);
-    renderDaily();
-  });
-}
 
 // ============ Food History ============
 

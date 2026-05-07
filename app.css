@@ -182,7 +182,13 @@ main, .fl-app-header, .fl-tabs {
   cursor: pointer;
 }
 .fl-row-add-btn:hover { background: var(--fl-success); color: #fff; }
-.fl-row-add-btn:disabled { opacity: 0.6; cursor: default; }
+.fl-row-add-btn:disabled {
+  border-color: var(--fl-border);
+  color: var(--fl-muted);
+  background: var(--fl-bg-subtle);
+  opacity: 0.75;
+  cursor: default;
+}
 
 .fl-row-del-btn {
   background: transparent;
@@ -301,27 +307,6 @@ main, .fl-app-header, .fl-tabs {
 }
 .fl-clear-day-btn:hover { border-color: var(--fl-error); }
 
-.fl-daily-target-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.fl-target-input-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--fl-muted);
-}
-.fl-target-input-label input[type="number"] {
-  width: 90px;
-  padding: 4px 8px;
-  border: 1px solid var(--fl-border);
-  border-radius: 6px;
-  font: inherit;
-  font-size: 13px;
-}
 .fl-daily-actions, .fl-history-actions {
   display: flex;
   gap: 8px;
