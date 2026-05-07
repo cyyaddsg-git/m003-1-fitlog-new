@@ -13,8 +13,8 @@ const KEY_PROMPT = `${STORAGE_PREFIX}_systemPrompt`;
 const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
 
-const SUPPORTED_MODELS = ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.0-flash'];
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const SUPPORTED_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+const DEFAULT_MODEL = 'gemini-3-flash-preview';
 
 // Fallback preference order. When the selected primary model 5xx's, try these
 // in order (skipping the primary). gemini-3-flash-preview is preferred because
