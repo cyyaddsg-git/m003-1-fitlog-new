@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FitLog · M003-1</title>
+<link rel="stylesheet" href="./app.css" />
+</head>
+<body>
+
+<header class="fl-app-header">
+  <h1>FitLog</h1>
+  <button type="button" class="fl-icon-btn" id="fl-settings-btn">Settings</button>
+</header>
+
+<nav class="fl-tabs" role="tablist">
+  <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true">Logging</button>
+  <button type="button" class="fl-tab" data-tab="library" role="tab" aria-selected="false">Library</button>
+</nav>
+
+<main>
+
+<!-- ============ Logging tab ============ -->
+<section class="fl-panel" data-panel="logging" role="tabpanel">
+
+  <div class="fl-input-row">
+    <textarea id="fl-input" rows="3" placeholder='Describe a meal in any language — e.g. "kopitiam nasi lemak with 150g ayam goreng, anchovies (skip 80%), 1/2 boiled egg no yolk, 150g nasi"'></textarea>
+    <button type="button" class="fl-send-btn" id="fl-send-btn">Send</button>
+  </div>
+
+  <div class="fl-validation" id="fl-validation" hidden></div>
+  <div class="fl-status" id="fl-status" hidden></div>
+
+  <!-- Preview table (after Send) -->
+  <section class="fl-preview" id="fl-preview" hidden>
+    <h2>Preview</h2>
+    <div class="fl-table-wrap">
+      <table class="fl-table" id="fl-preview-table"></table>
+    </div>
+    <ul class="fl-notes" id="fl-preview-notes" hidden></ul>
+
+    <div class="fl-log-row">
+      <span class="fl-log-label">Log as:</span>
+      <label><input type="radio" name="fl-meal" value="breakfast" checked /> Breakfast</label>
+      <label><input type="radio" name="fl-meal" value="lunch" /> Lunch</label>
+      <label><input type="radio" name="fl-meal" value="dinner" /> Dinner</label>
+      <label><input type="radio" name="fl-meal" value="snack" /> Snack</label>
+      <button type="button" class="fl-log-btn" id="fl-log-btn">Log</button>
+    </div>
+  </section>
+
+  <!-- Daily Log -->
+  <section class="fl-daily">
+    <h2>Daily Log <span class="fl-daily-date" id="fl-daily-date"></span></h2>
+    <div class="fl-table-wrap">
+      <table class="fl-table fl-daily-table" id="fl-daily-table"></table>
+    </div>
+    <button type="button" class="fl-clear-day-btn" id="fl-clear-day-btn">Clear today</button>
+  </section>
+
+</section>
+
+<!-- ============ Library tab ============ -->
+<section class="fl-panel" data-panel="library" role="tabpanel" hidden>
+  <div class="fl-library-header">
+    <span class="fl-library-count" id="fl-library-count">0 items</span>
+    <button type="button" class="fl-library-clear" id="fl-library-clear">Clear all</button>
+  </div>
+  <div class="fl-table-wrap">
+    <table class="fl-table" id="fl-library-table"></table>
+  </div>
+  <p class="fl-empty" id="fl-library-empty" hidden>No items yet — add some from the Logging tab's preview rows.</p>
+</section>
+
+</main>
+
+<!-- ============ Settings modal ============ -->
+<div class="fl-modal" id="fl-settings-modal" hidden>
+  <div class="fl-modal-card">
+    <h3>Settings</h3>
+    <label>Gemini API key
+      <input type="password" id="fl-set-apikey" autocomplete="off" spellcheck="false" />
+      <small>Stored only on this device. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</small>
+    </label>
+    <label>Model
+      <select id="fl-set-model">
+        <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+        <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+      </select>
+    </label>
+    <label>System prompt
+      <textarea id="fl-set-prompt" rows="10"></textarea>
+      <button type="button" class="fl-set-reset" id="fl-set-reset">Reset to default</button>
+    </label>
+    <div class="fl-modal-actions">
+      <button type="button" class="fl-modal-close" id="fl-settings-close">Done</button>
+    </div>
+  </div>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>
