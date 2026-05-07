@@ -328,6 +328,9 @@ main, .fl-app-header, .fl-tabs {
   flex-wrap: wrap;
   align-items: center;
 }
+.fl-daily-actions .fl-log-day-btn {
+  margin-left: auto;
+}
 .fl-log-day-btn {
   background: var(--fl-success);
   color: #fff;

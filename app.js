@@ -221,12 +221,12 @@ function slug(s) {
 function defaultLibraryEntries() {
   const lines = DEFAULT_LIBRARY_CSV.trim().split(/\r?\n/);
   return lines.slice(1).map((line) => {
-    const [category, item, size, kcal, p, f, c, su, fb] = parseCSVLine(line);
+    const [, item, size, kcal, p, f, c, su, fb] = parseCSVLine(line);
     const serving = parseServingSize(size);
     return {
       id: `seed-${slug(item)}-${slug(size)}`,
       item,
-      brand: category,
+      brand: '',
       ...serving,
       kcal: Number(kcal) || 0,
       p: Number(p) || 0,
@@ -977,7 +977,7 @@ els.clearDayBtn.addEventListener('click', () => {
 
 // ============ Library tab ============
 
-const LIB_COLS = ['item', 'brand', 'serving', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
+const LIB_COLS = ['item', 'serving', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
 
 function renderLibrary() {
   const lib = loadLibrary();
@@ -1011,7 +1011,7 @@ function renderLibrary() {
     LIB_COLS.forEach((c) => {
       const td = document.createElement('td');
       const v = entry[c];
-      if (c === 'item' || c === 'brand' || c === 'serving') {
+      if (c === 'item' || c === 'serving') {
         td.textContent = String(v ?? '');
       } else {
         td.classList.add('fl-num');
