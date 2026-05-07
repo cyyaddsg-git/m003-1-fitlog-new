@@ -141,9 +141,22 @@ async function callGemini({ apiKey, model, systemPrompt, input }) {
     throw e;
   }
   const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  let parsed = null;
-  try { parsed = JSON.parse(raw); } catch {}
+  const parsed = tryParseJSON(raw);
   return { raw, parsed };
+}
+
+// Tolerant JSON parser — strips markdown fences and trims to outermost {...}.
+// gemini-2.5-flash sometimes wraps output in ```json ... ``` despite responseMimeType.
+function tryParseJSON(raw) {
+  if (!raw) return null;
+  let text = String(raw).trim();
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  }
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first >= 0 && last > first) text = text.slice(first, last + 1);
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 function formatError(e) {
@@ -342,7 +355,8 @@ async function send() {
     });
     setStatus(null);
     if (!result.parsed || !Array.isArray(result.parsed.rows)) {
-      setStatus('Gemini returned non-JSON or wrong shape. Raw output:\n' + result.raw, 'error');
+      setStatus('Gemini returned non-JSON or wrong shape. Raw output below — try rephrasing or switching model in Settings.', 'error');
+      renderRawFallback(result.raw);
       return;
     }
     renderPreview(result.parsed);
@@ -353,7 +367,29 @@ async function send() {
   }
 }
 
+function renderRawFallback(raw) {
+  lastPreview = null;
+  els.previewTable.innerHTML = '';
+  const pre = document.createElement('pre');
+  pre.className = 'fl-raw-fallback';
+  pre.textContent = raw || '(empty response)';
+  els.previewTable.replaceWith(pre);
+  pre.id = 'fl-preview-table';
+  els.previewTable = pre;
+  els.previewNotes.hidden = true;
+  els.previewNotes.innerHTML = '';
+  els.preview.hidden = false;
+}
+
 function renderPreview(parsed) {
+  // Restore table element if it was swapped out by renderRawFallback.
+  if (els.previewTable.tagName !== 'TABLE') {
+    const tbl = document.createElement('table');
+    tbl.className = 'fl-table';
+    tbl.id = 'fl-preview-table';
+    els.previewTable.replaceWith(tbl);
+    els.previewTable = tbl;
+  }
   const rows = (parsed.rows || []).filter((r) => r && r.item != null);
   const notes = Array.isArray(parsed.notes) ? parsed.notes : [];
   lastPreview = { rows, notes };
