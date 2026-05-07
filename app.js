@@ -13,8 +13,14 @@ const KEY_PROMPT = `${STORAGE_PREFIX}_systemPrompt`;
 const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
 
-const SUPPORTED_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+const SUPPORTED_MODELS = ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.0-flash'];
 const DEFAULT_MODEL = 'gemini-2.5-flash';
+
+// Fallback preference order. When the selected primary model 5xx's, try these
+// in order (skipping the primary). gemini-3-flash-preview is preferred because
+// it lives on a separate capacity pool from 2.5-flash and is on free tier.
+// gemini-2.0-flash is last because some accounts have free_tier limit=0 on it.
+const FALLBACK_PRIORITY = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 
 const GEMINI_URL = (model, apiKey) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -415,10 +421,9 @@ async function send() {
   const matched = libraryLookup(input, lib);
   const promptWithContext = buildPromptWithContext(state.systemPrompt, matched);
 
-  // Build fallback chain: try primary model; if it 503s, try the other model once.
+  // Build fallback chain: try primary, then up to 2 alternatives in priority order.
   const primary = state.model;
-  const fallback = primary === 'gemini-2.5-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
-  const chain = [primary, fallback];
+  const chain = [primary, ...FALLBACK_PRIORITY.filter((m) => m !== primary)].slice(0, 3);
   let lastErr = null;
   let triedModels = [];
 
