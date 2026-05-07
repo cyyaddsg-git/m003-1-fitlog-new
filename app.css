@@ -380,6 +380,39 @@ main, .fl-app-header, .fl-tabs {
 .fl-modal-card small { font-size: 11px; color: var(--fl-muted); }
 .fl-modal-card a { color: var(--fl-accent); }
 
+.fl-test-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px dashed var(--fl-border);
+  padding-top: 10px;
+}
+.fl-test-btn {
+  align-self: flex-start;
+  background: transparent;
+  color: var(--fl-accent);
+  border: 1px solid var(--fl-accent);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.fl-test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.fl-test-output {
+  margin: 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--fl-bg-subtle);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--fl-border);
+}
+
 .fl-set-reset {
   background: transparent;
   color: var(--fl-accent);

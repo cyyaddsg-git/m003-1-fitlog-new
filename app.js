@@ -162,14 +162,24 @@ function tryParseJSON(raw) {
 function formatError(e) {
   if (!e) return 'Unknown error.';
   const s = e.status;
-  if (s === 400) return 'Bad request — check the system prompt format.';
-  if (s === 401 || s === 403) return 'API key invalid or restricted. Check Settings.';
-  if (s === 404) return 'Model not found. Pick another model in Settings.';
-  if (s === 429) return 'Rate limit reached. Wait a minute and retry, or switch model in Settings.';
-  if (s === 503) return 'Gemini overloaded (503). Try again, or switch to gemini-2.0-flash in Settings.';
-  if (s >= 500) return `Gemini server error (${s}). Try again.`;
+  const msg = e.message || '';
+  // Always include Google's verbatim error message — it carries the real reason.
+  const tag = (label) => `${label} — Google says: "${msg}"`;
+  if (s === 400) return tag('HTTP 400 (bad request)');
+  if (s === 401 || s === 403) {
+    // Common 403 reasons: API not enabled, key restricted, billing not set up.
+    return tag('HTTP ' + s + ' (auth / permission)');
+  }
+  if (s === 404) return tag('HTTP 404 (model not found)');
+  if (s === 429) {
+    // 429 covers per-minute quota, per-day quota, AND "API not enabled" on some projects.
+    // Google's error message is the only way to tell them apart.
+    return tag('HTTP 429 (quota / rate limit)');
+  }
+  if (s === 503) return tag('HTTP 503 (Gemini capacity)');
+  if (s >= 500) return tag(`HTTP ${s} (server error)`);
   if (e.finishReason) return `Stopped: ${e.finishReason} — try shorter input or different prompt.`;
-  return `Error: ${e.message || 'Unknown'}`;
+  return msg ? `Error: ${msg}` : 'Unknown error.';
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -255,6 +265,8 @@ const els = {
   setModel: $('#fl-set-model'),
   setPrompt: $('#fl-set-prompt'),
   setReset: $('#fl-set-reset'),
+  testBtn: $('#fl-test-btn'),
+  testOutput: $('#fl-test-output'),
   tabs: Array.from(document.querySelectorAll('.fl-tab')),
   panels: Array.from(document.querySelectorAll('.fl-panel')),
   input: $('#fl-input'),
@@ -319,6 +331,63 @@ function closeSettings() {
 els.settingsBtn.addEventListener('click', openSettings);
 els.settingsClose.addEventListener('click', closeSettings);
 els.setReset.addEventListener('click', () => { els.setPrompt.value = DEFAULT_SYSTEM_PROMPT; });
+
+// Minimal probe to isolate "is the key working at all?" from prompt complexity.
+async function testConnection() {
+  els.testBtn.disabled = true;
+  els.testOutput.hidden = false;
+  const apiKey = els.setApikey.value.trim();
+  const model = els.setModel.value || DEFAULT_MODEL;
+  if (!apiKey) {
+    els.testOutput.textContent = 'Paste an API key first.';
+    els.testBtn.disabled = false;
+    return;
+  }
+  els.testOutput.textContent = `Probing ${model}…`;
+  const url = GEMINI_URL(model, apiKey);
+  const body = { contents: [{ role: 'user', parts: [{ text: 'Reply with the single word: pong' }] }] };
+  let res, json, text;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    text = await res.text();
+    try { json = JSON.parse(text); } catch { json = null; }
+  } catch (netErr) {
+    els.testOutput.textContent = `Network error: ${netErr.message || netErr}\n\n` +
+      `(Could be CORS, offline, or DNS — check the browser console.)`;
+    els.testBtn.disabled = false;
+    return;
+  }
+  const lines = [];
+  lines.push(`Endpoint: POST ${url.replace(/key=[^&]+/, 'key=…' + apiKey.slice(-4))}`);
+  lines.push(`Status: ${res.status} ${res.statusText}`);
+  if (json?.error) {
+    lines.push('');
+    lines.push(`Google error code: ${json.error.code}`);
+    lines.push(`Google error status: ${json.error.status}`);
+    lines.push(`Google error message: ${json.error.message}`);
+    if (Array.isArray(json.error.details) && json.error.details.length) {
+      lines.push('Google error details:');
+      lines.push(JSON.stringify(json.error.details, null, 2));
+    }
+  } else if (res.ok) {
+    const reply = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '(no text in response)';
+    lines.push('');
+    lines.push(`Reply: ${reply.trim()}`);
+    lines.push('');
+    lines.push('✓ Key works. If meal-logging Send still fails, the issue is prompt-specific (try shorter input, different model, or check the raw output box).');
+  } else {
+    lines.push('');
+    lines.push('Raw response body:');
+    lines.push(text);
+  }
+  els.testOutput.textContent = lines.join('\n');
+  els.testBtn.disabled = false;
+}
+els.testBtn.addEventListener('click', testConnection);
 
 // ============ Tabs ============
 
