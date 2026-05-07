@@ -11,6 +11,7 @@ const KEY_API = `${STORAGE_PREFIX}_apiKey`;
 const KEY_MODEL = `${STORAGE_PREFIX}_model`;
 const KEY_PROMPT = `${STORAGE_PREFIX}_systemPrompt`;
 const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
+const KEY_LIBRARY_SEED = `${STORAGE_PREFIX}_librarySeedVersion`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
 const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
 const KEY_TARGET = `${STORAGE_PREFIX}_targetKcalByDate`;
@@ -88,6 +89,72 @@ Library priority:
 - For each user-described item, first check LIBRARY_CONTEXT for a match (by item name + brand). If found, copy that entry's per-portion values (scaling to user-stated portion if needed) and prefix the item label with "[lib] ".
 - Otherwise estimate using brand information the user provided. If brand is ambiguous, portion is unspecified, or the dish is unrecognizable, add a "notes" line asking the user to clarify (e.g. "Specify brand for nasi lemak — kcal varies 400–700 across kopitiam vs packaged"). The user can refine and re-send.`;
 
+const DEFAULT_LIBRARY_VERSION = '2026-05-07-reference';
+const DEFAULT_LIBRARY_CSV = `Category,Item,Size,kcal,Protein (g),Fat (g),Carb (g),Sugar (g),Fiber (g)
+Beverage,GutC Better Soda (Mixed Berries),1 can (250ml),15,0,0,3.8,1.3,6
+Beverage,Heineken,1 can (320ml),134,4.2,0,32.6,0,0
+Dairy/Plant,Oatside Oat Milk,100ml,65,0.6,3.2,8.1,2.8,0
+Dairy/Plant,Oatside Protein Chocolate,100ml,66,8,1.4,4.8,1.6,1.2
+Dairy/Plant,So Good Almond Milk,100ml,39,0.8,2.6,2.8,1.6,0.5
+Dairy/Plant,Homesoy (No Sugar),100ml,30,2.5,1.6,1.2,0.5,0.5
+Dairy/Plant,Chobani Greek Yogurt (Light),100g,56,9.3,0.2,4,3.3,0
+Dairy/Plant,Chobani No Sugar Strawberry,100g,66,8.1,1.7,4.2,2.9,0.2
+Dairy/Plant,Farmers Union Protein Greek Yogurt,100g,55,8.3,0.2,4.9,4.9,0
+Dairy/Plant,Arla Lactofree Fresh Cheese,100g,190,7.8,16,3.3,3.3,0
+Dairy/Plant,Family Brand Low Fat Mozzarella,100g,260,27,16,2.6,0.5,0
+High-Fiber,Chia Seeds,10g,51.6,2,3.3,3,0,3
+High-Fiber,Biogrow Oat Bran,1 scoop,26,1.9,0.5,2.7,0.1,3.1
+High-Fiber,Avocado (Raw),100g,160,2,14.7,8.5,0.7,6.7
+High-Fiber,Spinach (Raw),100g,23,2.9,0.4,3.6,0.4,2.2
+High-Fiber,Broccoli (Raw),100g,34,2.8,0.4,6.6,1.7,2.6
+High-Fiber,Raspberries (Raw),100g,52,1.2,0.7,11.9,4.4,6.5
+High-Fiber,Lentils (Cooked),100g,116,9,0.4,20.1,1.8,7.9
+High-Fiber,Black Beans (Cooked),100g,132,8.9,0.5,23.7,0.3,8.7
+High-Fiber,Australian Celery (Raw),100g,14,0.7,0.2,3,1.3,1.6
+Homemake,Chobani Yogurt Basque Cake (0415),1 cake (220g raw),279,18.9,4,40.8,33.5,0.2
+Meat,Chicken Breast (Raw),100g,120,22,3,0,0,0
+Meat,Sea Prawn (Raw),100g,106,20.3,1.7,1,0,0
+Meat,"Salmon (Atlantic, Raw)",100g,208,20,13,0,0,0
+Meat,Ayamas Black Pepper Sausage,1 pc,59,7.1,1.6,3.5,0,0
+Pantry,Symphony Dark Choc Spread,100g,502,5.6,39.1,51,0,7.5
+Pantry,Sunshine Bread (Malaysia),100g,269,10.7,3.2,47.2,12.7,4.3
+Pantry,Jobbie Pure Peanut Butter (Creamy),100g,618,33.6,46.3,5.4,5.1,11.2
+Pantry,Steamed White Rice,150g,195,4,0.4,42,0.1,1
+Pantry,Cooked White Rice,100g,130,2.7,0.3,28,0.1,0.4
+Pantry,Cooked Brown Rice,100g,123,2.7,1,25.6,0.2,1.6
+Pantry,Weetbix,30g,106,3.6,0.4,20.1,0.8,3
+Pantry,Weet-Bix Bites (Honey Crunch),100g,369,11.4,1.4,72.6,18.8,8
+Pantry,Ceres Organic Rice Cake,3 pcs,69,1.5,0.5,14.7,0.4,0.6
+Pantry,Woolworths Baked Pretzels,25g,98,2.5,1,19,0.9,0.9
+Pantry,Mama Noodle (Pork),1 pack (60g),290,6,13,36,3,0
+Pantry,Mama Noodle (Tomyum),1 pack (55g),250,6,11,32,3,0
+Pantry,Realfoods Cornthins (Sesame),3 pcs,69,1.9,0.6,12.6,0.1,1.5
+Pantry,Rolled Oats,100g,358,15,7,55,0,0
+Pantry,Mimo Shirataki Noodle,100g,5,0,0,1,0,3
+Pantry,Sunshine Shokupan Purple Sweet Potato,1 pc (30g),80.5,3.2,1,14.2,3.8,1.3
+Pantry,Meizhoushike Sea Salt Choc Oatmeal,100g,418,9.2,7.9,76.5,0,0
+Pantry,Radiant Organic Muesli,100g,414,10,10.7,69.4,8.1,13.5
+Ready-to-Eat,Betagro Tender Chicken (Garlic Butter),1 pack,100,19.1,1,3.8,1.4,0
+Ready-to-Eat,Betagro Tender Chicken (Hot & Spicy),1 pack,97,18.6,1.3,2.7,1.2,1.2
+Ready-to-Eat,Betagro Tender Chicken (Herb),1 pack,96,20.8,1.3,0.4,0,0.6
+Seasoning,Blue Elephant Tom Yum,15g,40,0,2.5,5,3,0
+Seasoning,Blue Elephant Krapow Paste,15g,30,3.1,2.5,3,1,0
+Snack,Gullon Sugar Free Maria,1 pc,25,0.4,0.7,4.5,0.5,0.3
+Snack,Gullon No Sugar Twins,1 pc,43,0.5,1.8,6.8,0.3,0.9
+Snack,Gullon Sugar Free Fibre,1 pc,37,0.5,1.4,5.5,0.4,0.8
+Snack,Ovaltine Choc Malt Cookies,3 pcs,150,2,8,19,7,1
+Snack,Lexus Sandwich Biscuit,1 sachet (2 pcs),92,1.7,4.2,11.6,4.7,0.8
+Snack,鳕鱼香丝 (Fish Strips),100g,324,24,0.3,52.4,0,0
+Snack,Tong Garden Noi Cassava Chips,30g,150,0,6,22,1,0
+Snack,Benns 99.9% Dark Chocolate,1 pc (4g),23,0.6,1.7,1.3,0,0.9
+Snack,Tiger Chocolate Mini Biscuit,1 pc,15.7,0.3,0.7,2.5,0.9,0
+Snack,Carada Nori Seaweed Snack,1 bag (64g),280,2,8,50,18,0
+Snack,Lay's Baked Chips,1 serv (28g),130,2,5,20,2,1
+Snack,Oreo Sandwich Biscuit,1 pc,42,0.4,1.8,5.9,3.2,0.3
+Supplements,Performa Whey (Milk Tea),1 serv,140,25.2,0.9,8.1,3.2,2
+Supplements,MyProtein Whey (Choc),1 serv,113,22,1.9,2,1.5,0
+Tofu,Lousam Soft Tofu,100g,53,5.9,2.5,1.8,0,0`;
+
 // ============ Storage helpers ============
 
 const safeLS = {
@@ -115,7 +182,79 @@ function saveSettings(s) {
   safeLS.set(KEY_PROMPT, s.systemPrompt ?? '');
 }
 
-function loadLibrary() { return safeLS.getJSON(KEY_LIBRARY, []); }
+function parseCSVLine(line) {
+  const out = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseServingSize(size) {
+  const s = String(size || '').trim();
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+|pcs?|serv|sachet|scoop|cake|can|pack|bag)\b/i);
+  return {
+    serving: s,
+    qty: m ? Number(m[1]) : '',
+    unit: m ? m[2].toLowerCase() : '',
+  };
+}
+
+function slug(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+}
+
+function defaultLibraryEntries() {
+  const lines = DEFAULT_LIBRARY_CSV.trim().split(/\r?\n/);
+  return lines.slice(1).map((line) => {
+    const [category, item, size, kcal, p, f, c, su, fb] = parseCSVLine(line);
+    const serving = parseServingSize(size);
+    return {
+      id: `seed-${slug(item)}-${slug(size)}`,
+      item,
+      brand: category,
+      ...serving,
+      kcal: Number(kcal) || 0,
+      p: Number(p) || 0,
+      f: Number(f) || 0,
+      c: Number(c) || 0,
+      su: Number(su) || 0,
+      fb: Number(fb) || 0,
+      addedAt: DEFAULT_LIBRARY_VERSION,
+    };
+  });
+}
+
+function loadLibrary() {
+  const lib = safeLS.getJSON(KEY_LIBRARY, []);
+  if (safeLS.get(KEY_LIBRARY_SEED) === DEFAULT_LIBRARY_VERSION) return lib;
+
+  const existingKeys = new Set(lib.map((e) =>
+    `${String(e.item || '').toLowerCase()}|${String(e.serving || e.qty || '').toLowerCase()}|${String(e.unit || '').toLowerCase()}`
+  ));
+  const seeded = defaultLibraryEntries().filter((e) => {
+    const key = `${e.item.toLowerCase()}|${e.serving.toLowerCase()}|${e.unit.toLowerCase()}`;
+    return !existingKeys.has(key);
+  });
+  const merged = [...seeded, ...lib];
+  safeLS.setJSON(KEY_LIBRARY, merged);
+  safeLS.set(KEY_LIBRARY_SEED, DEFAULT_LIBRARY_VERSION);
+  return merged;
+}
 function saveLibrary(lib) { safeLS.setJSON(KEY_LIBRARY, lib); }
 function loadDaily() { return safeLS.getJSON(KEY_DAILY, {}); }
 function saveDaily(d) { safeLS.setJSON(KEY_DAILY, d); }
@@ -283,6 +422,7 @@ function buildPromptWithContext(basePrompt, matched) {
   const slim = matched.map((e) => ({
     item: e.item,
     brand: e.brand || '',
+    serving: e.serving || '',
     qty: e.qty || '',
     unit: e.unit || '',
     kcal: num(e.kcal),
@@ -618,6 +758,7 @@ function addRowToLibrary(row, btn) {
     id: uid(),
     item: itemName,
     brand: '',
+    serving: m ? `${m[2]}${m[3].toLowerCase()}` : '',
     qty: qty,
     unit: unit,
     kcal: num(row.kcal),
@@ -701,13 +842,6 @@ function sumItems(items) {
 function renderDaily() {
   const date = todayISO();
   els.dailyDate.textContent = date;
-
-  // Sync target input with stored target for today
-  const targets = loadTargets();
-  const t = targets[date];
-  if (els.targetInput && document.activeElement !== els.targetInput) {
-    els.targetInput.value = t == null || t === '' ? '' : String(t);
-  }
 
   const all = loadDaily();
   const day = all[date] || blankDay();
@@ -799,8 +933,8 @@ function renderDaily() {
   });
   tbody.appendChild(trTotal);
 
-  // Target row — only kcal is tracked in V1; other macros remain blank.
-  const targetKcal = t == null || t === '' ? null : num(t);
+  // Target kcal stays hidden until profile support lands.
+  const targetKcal = null;
   const trTarget = document.createElement('tr');
   trTarget.classList.add('fl-target-row');
   const tdT = document.createElement('td');
@@ -843,7 +977,7 @@ els.clearDayBtn.addEventListener('click', () => {
 
 // ============ Library tab ============
 
-const LIB_COLS = ['item', 'qty', 'unit', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
+const LIB_COLS = ['item', 'brand', 'serving', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
 
 function renderLibrary() {
   const lib = loadLibrary();
@@ -863,7 +997,7 @@ function renderLibrary() {
   LIB_COLS.forEach((c) => {
     const th = document.createElement('th');
     th.textContent = c;
-    if (['kcal','p','f','c','su','fb','qty'].includes(c)) th.classList.add('fl-num');
+    if (['kcal','p','f','c','su','fb'].includes(c)) th.classList.add('fl-num');
     trh.appendChild(th);
   });
   const thDel = document.createElement('th');
@@ -877,11 +1011,8 @@ function renderLibrary() {
     LIB_COLS.forEach((c) => {
       const td = document.createElement('td');
       const v = entry[c];
-      if (c === 'item' || c === 'unit') {
+      if (c === 'item' || c === 'brand' || c === 'serving') {
         td.textContent = String(v ?? '');
-      } else if (c === 'qty') {
-        td.classList.add('fl-num');
-        td.textContent = v === '' || v == null ? '' : String(v);
       } else {
         td.classList.add('fl-num');
         td.textContent = c === 'kcal' ? fmtNum(v, 0) : fmtNum(v, 1);
@@ -914,15 +1045,17 @@ els.libraryClear.addEventListener('click', () => {
 
 // ============ Target input ============
 
-els.targetInput.addEventListener('input', () => {
-  const date = todayISO();
-  const targets = loadTargets();
-  const v = els.targetInput.value.trim();
-  if (v === '') delete targets[date];
-  else targets[date] = num(v);
-  saveTargets(targets);
-  renderDaily();
-});
+if (els.targetInput) {
+  els.targetInput.addEventListener('input', () => {
+    const date = todayISO();
+    const targets = loadTargets();
+    const v = els.targetInput.value.trim();
+    if (v === '') delete targets[date];
+    else targets[date] = num(v);
+    saveTargets(targets);
+    renderDaily();
+  });
+}
 
 // ============ Food History ============
 
@@ -943,12 +1076,11 @@ function logDay() {
   const day = all[date] || blankDay();
   const totals = dayTotals(day);
 
-  const targets = loadTargets();
-  const target = targets[date];
+  const target = null;
 
   const hasAny = NUMERIC_COLS.some((k) => totals[k] > 0);
   if (!hasAny && (target == null || target === '')) {
-    setStatus('Nothing to snapshot — log meals or set a target first.', 'error');
+    setStatus('Nothing to snapshot — log a meal first.', 'error');
     setTimeout(() => setStatus(null), 2500);
     return;
   }
@@ -1067,8 +1199,7 @@ function exportDailyCSV() {
   const date = todayISO();
   const all = loadDaily();
   const day = all[date] || blankDay();
-  const targets = loadTargets();
-  const target = targets[date];
+  const target = null;
 
   const rows = [['date', 'meal', 'item', ...NUMERIC_COLS]];
   MEAL_SLOTS.forEach((slot) => {

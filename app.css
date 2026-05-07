@@ -242,8 +242,9 @@ main, .fl-app-header, .fl-tabs {
   color: #fff;
   border: 0;
   border-radius: 6px;
-  padding: 8px 16px;
+  padding: 10px 18px;
   font: inherit;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -328,14 +329,14 @@ main, .fl-app-header, .fl-tabs {
   align-items: center;
 }
 .fl-log-day-btn {
-  background: var(--fl-accent);
-  color: var(--fl-accent-fg);
-  border: 1px solid var(--fl-accent);
+  background: var(--fl-success);
+  color: #fff;
+  border: 0;
   border-radius: 6px;
-  padding: 6px 14px;
+  padding: 10px 18px;
   font: inherit;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
 }
 .fl-log-day-btn:hover { filter: brightness(1.05); }
