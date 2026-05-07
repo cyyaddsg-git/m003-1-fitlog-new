@@ -26,6 +26,36 @@ const GEMINI_URL = (model, apiKey) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
 const COLS = ['item', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
+
+// Authoritative schema sent to Gemini via generationConfig.responseSchema.
+// Forces structured output — without this, gemini-3-flash-preview will
+// invent its own field names (e.g. {meal, calories, protein_g, ...}).
+const FOOD_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    rows: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          item: { type: 'string' },
+          kcal: { type: 'number' },
+          p: { type: 'number' },
+          f: { type: 'number' },
+          c: { type: 'number' },
+          su: { type: 'number' },
+          fb: { type: 'number' },
+        },
+        required: ['item', 'kcal', 'p', 'f', 'c', 'su', 'fb'],
+      },
+    },
+    notes: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  },
+  required: ['rows'],
+};
 const NUMERIC_COLS = ['kcal', 'p', 'f', 'c', 'su', 'fb'];
 const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
@@ -122,7 +152,10 @@ async function callGemini({ apiKey, model, systemPrompt, input }) {
   const url = GEMINI_URL(model, apiKey);
   const body = {
     contents: [{ role: 'user', parts: [{ text: input }] }],
-    generationConfig: { responseMimeType: 'application/json' },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: FOOD_RESPONSE_SCHEMA,
+    },
   };
   if (systemPrompt && systemPrompt.trim()) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] };
