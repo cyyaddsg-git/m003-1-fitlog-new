@@ -1789,10 +1789,17 @@ els.exportHistoryBtn.addEventListener('click', exportHistoryCSV);
 
 async function signInWithGoogle() {
   try {
-    await auth.signInWithPopup(googleProvider);
+    setStatus('Opening Google sign-in...', 'info');
+    const result = await auth.signInWithPopup(googleProvider);
+    console.info('[fitlog] sign-in success', result.user?.uid);
+    setStatus('Sign-in successful.', 'info');
+    setTimeout(() => setStatus(null), 3000);
   } catch (e) {
     console.error('[fitlog] sign-in error', e);
-    setStatus('Sign-in failed: ' + e.message, 'error');
+    const msg = e.code === 'auth/popup-closed-by-user' 
+      ? 'Sign-in window closed before completion.'
+      : 'Sign-in failed: ' + e.message;
+    setStatus(msg, 'error');
   }
 }
 
