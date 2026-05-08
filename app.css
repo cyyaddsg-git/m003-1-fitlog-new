@@ -263,6 +263,16 @@ main, .fl-app-header, .fl-tabs {
   letter-spacing: 0;
   text-transform: none;
   margin-left: 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 6px;
+  background: var(--fl-bg);
+  padding: 3px 8px;
+}
+.fl-daily h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .fl-daily-table tr.fl-meal-row { cursor: pointer; }

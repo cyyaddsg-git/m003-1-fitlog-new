@@ -61,6 +61,7 @@ const FOOD_RESPONSE_SCHEMA = {
 const NUMERIC_COLS = ['kcal', 'p', 'f', 'c', 'su', 'fb'];
 const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
+const DAILY_DATE_WINDOW_DAYS = 30;
 
 const DEFAULT_SYSTEM_PROMPT = `You are a nutrition estimator. The user describes a meal in any language with portions and skip-eat notes. Output JSON ONLY in this exact shape:
 
@@ -437,6 +438,7 @@ function buildPromptWithContext(basePrompt, matched) {
 
 let state = loadSettings();
 let lastPreview = null; // { rows: [...], notes: [...] }
+let selectedDailyDate = todayISO();
 
 // ============ DOM refs ============
 
@@ -505,21 +507,23 @@ function showTab(name) {
 function openSettings() {
   els.setApikey.value = state.apiKey;
   els.setModel.value = state.model;
-  els.setPrompt.value = state.systemPrompt;
+  if (els.setPrompt) els.setPrompt.value = state.systemPrompt;
   els.settingsModal.hidden = false;
 }
 function closeSettings() {
   state = {
     apiKey: els.setApikey.value.trim(),
     model: els.setModel.value || DEFAULT_MODEL,
-    systemPrompt: els.setPrompt.value,
+    systemPrompt: els.setPrompt ? els.setPrompt.value : state.systemPrompt,
   };
   saveSettings(state);
   els.settingsModal.hidden = true;
 }
 els.settingsBtn.addEventListener('click', openSettings);
 els.settingsClose.addEventListener('click', closeSettings);
-els.setReset.addEventListener('click', () => { els.setPrompt.value = DEFAULT_SYSTEM_PROMPT; });
+if (els.setReset && els.setPrompt) {
+  els.setReset.addEventListener('click', () => { els.setPrompt.value = DEFAULT_SYSTEM_PROMPT; });
+}
 
 // Minimal probe to isolate "is the key working at all?" from prompt complexity.
 async function testConnection() {
@@ -659,6 +663,48 @@ function renderRawFallback(raw) {
   els.preview.hidden = false;
 }
 
+function isTotalRow(row) {
+  return String(row?.item ?? '').trim().toLowerCase() === 'total';
+}
+
+function withComputedTotal(rows) {
+  const items = rows.filter((r) => r && r.item != null && !isTotalRow(r));
+  const total = sumItems(items);
+  return [
+    ...items,
+    {
+      item: 'Total',
+      kcal: total.kcal,
+      p: total.p,
+      f: total.f,
+      c: total.c,
+      su: total.su,
+      fb: total.fb,
+    },
+  ];
+}
+
+function clearPreviewState() {
+  lastPreview = null;
+  els.preview.hidden = true;
+  els.previewTable.innerHTML = '';
+  els.previewNotes.hidden = true;
+  els.previewNotes.innerHTML = '';
+}
+
+function removePreviewRow(index) {
+  if (!lastPreview) return;
+  const rows = lastPreview.rows.filter((r) => !isTotalRow(r));
+  rows.splice(index, 1);
+  if (!rows.length) {
+    clearPreviewState();
+    setStatus('All preview rows removed.', 'info');
+    setTimeout(() => setStatus(null), 2000);
+    return;
+  }
+  renderPreview({ rows, notes: lastPreview.notes });
+}
+
 function renderPreview(parsed) {
   // Restore table element if it was swapped out by renderRawFallback.
   if (els.previewTable.tagName !== 'TABLE') {
@@ -668,7 +714,7 @@ function renderPreview(parsed) {
     els.previewTable.replaceWith(tbl);
     els.previewTable = tbl;
   }
-  const rows = (parsed.rows || []).filter((r) => r && r.item != null);
+  const rows = withComputedTotal((parsed.rows || []).filter((r) => r && r.item != null));
   const notes = Array.isArray(parsed.notes) ? parsed.notes : [];
   lastPreview = { rows, notes };
 
@@ -686,12 +732,17 @@ function renderPreview(parsed) {
   const thAdd = document.createElement('th');
   thAdd.textContent = '';
   trh.appendChild(thAdd);
+  const thRemove = document.createElement('th');
+  thRemove.textContent = '';
+  trh.appendChild(thRemove);
   thead.appendChild(trh);
   tbl.appendChild(thead);
 
   const tbody = document.createElement('tbody');
+  let itemIndex = 0;
   rows.forEach((r, i) => {
-    const isTotal = String(r.item).toLowerCase() === 'total';
+    const isTotal = isTotalRow(r);
+    const currentItemIndex = itemIndex;
     const tr = document.createElement('tr');
     if (isTotal) tr.classList.add('fl-total');
     COLS.forEach((c) => {
@@ -722,6 +773,18 @@ function renderPreview(parsed) {
       tdAdd.appendChild(btn);
     }
     tr.appendChild(tdAdd);
+    const tdRemove = document.createElement('td');
+    if (!isTotal) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'fl-row-del-btn';
+      btn.textContent = '×';
+      btn.title = 'Remove preview row';
+      btn.addEventListener('click', () => removePreviewRow(currentItemIndex));
+      tdRemove.appendChild(btn);
+      itemIndex += 1;
+    }
+    tr.appendChild(tdRemove);
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
@@ -792,6 +855,10 @@ function getSelectedMeal() {
   return r ? r.value : null;
 }
 
+function selectedDate() {
+  return selectedDailyDate || todayISO();
+}
+
 function logMeal() {
   if (!lastPreview || !lastPreview.rows.length) {
     setStatus('Nothing to log — Send a meal description first.', 'error');
@@ -801,7 +868,7 @@ function logMeal() {
   if (!slot) { setStatus('Pick a meal slot first.', 'error'); return; }
 
   const items = lastPreview.rows
-    .filter((r) => String(r.item).toLowerCase() !== 'total')
+    .filter((r) => !isTotalRow(r))
     .map((r) => ({
       item: String(r.item ?? ''),
       kcal: num(r.kcal),
@@ -813,7 +880,7 @@ function logMeal() {
     }));
   if (!items.length) return;
 
-  const date = todayISO();
+  const date = selectedDate();
   const all = loadDaily();
   if (!all[date]) all[date] = blankDay();
   if (!all[date][slot]) all[date][slot] = { items: [] };
@@ -821,6 +888,9 @@ function logMeal() {
   saveDaily(all);
 
   renderDaily();
+  els.input.value = '';
+  showValidation(null);
+  clearPreviewState();
   setStatus(`Logged ${items.length} item(s) under ${MEAL_LABELS[slot]}.`, 'info');
   setTimeout(() => setStatus(null), 2500);
 }
@@ -843,12 +913,55 @@ function sumItems(items) {
   return t;
 }
 
+function dateOffsetISO(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${da}`;
+}
+
+function dailyDateOptions() {
+  const dates = [];
+  for (let i = DAILY_DATE_WINDOW_DAYS - 1; i >= 0; i--) dates.push(dateOffsetISO(-i));
+  return dates;
+}
+
+function renderDailyDateOptions() {
+  const dates = dailyDateOptions();
+  if (!dates.includes(selectedDailyDate)) selectedDailyDate = todayISO();
+  els.dailyDate.innerHTML = '';
+  dates.forEach((date) => {
+    const opt = document.createElement('option');
+    opt.value = date;
+    opt.textContent = date === todayISO() ? `${date} (today)` : date;
+    els.dailyDate.appendChild(opt);
+  });
+  els.dailyDate.value = selectedDailyDate;
+}
+
+function getDay(all, date) {
+  return all[date] || blankDay();
+}
+
+function removeDailyItem(date, slot, index) {
+  const all = loadDaily();
+  const day = getDay(all, date);
+  const items = (day[slot] && Array.isArray(day[slot].items)) ? [...day[slot].items] : [];
+  items.splice(index, 1);
+  day[slot] = { items };
+  all[date] = day;
+  saveDaily(all);
+  renderDaily();
+}
+
 function renderDaily() {
-  const date = todayISO();
-  els.dailyDate.textContent = date;
+  const date = selectedDate();
+  renderDailyDateOptions();
 
   const all = loadDaily();
-  const day = all[date] || blankDay();
+  const day = getDay(all, date);
 
   const tbl = els.dailyTable;
   tbl.innerHTML = '';
@@ -862,6 +975,8 @@ function renderDaily() {
     if (c !== 'item') th.classList.add('fl-num');
     trh.appendChild(th);
   });
+  const thDel = document.createElement('th');
+  trh.appendChild(thDel);
   thead.appendChild(trh);
   tbl.appendChild(thead);
 
@@ -888,6 +1003,8 @@ function renderDaily() {
       td.textContent = k === 'kcal' ? fmtNum(subtotal[k], 0) : fmtNum(subtotal[k], 1);
       trMeal.appendChild(td);
     });
+    const tdMealAction = document.createElement('td');
+    trMeal.appendChild(tdMealAction);
     trMeal.addEventListener('click', () => {
       if (expandedMeals.has(slot)) expandedMeals.delete(slot);
       else expandedMeals.add(slot);
@@ -900,7 +1017,7 @@ function renderDaily() {
         const tr = document.createElement('tr');
         tr.classList.add('fl-empty-row');
         const td = document.createElement('td');
-        td.colSpan = COLS.length;
+        td.colSpan = COLS.length + 1;
         td.textContent = '(no items)';
         tr.appendChild(td);
         tbody.appendChild(tr);
@@ -917,6 +1034,18 @@ function renderDaily() {
             td.textContent = k === 'kcal' ? fmtNum(it[k], 0) : fmtNum(it[k], 1);
             tr.appendChild(td);
           });
+          const tdDel = document.createElement('td');
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'fl-row-del-btn';
+          del.textContent = '×';
+          del.title = `Remove from ${MEAL_LABELS[slot]}`;
+          del.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeDailyItem(date, slot, idx);
+          });
+          tdDel.appendChild(del);
+          tr.appendChild(tdDel);
           tbody.appendChild(tr);
         });
       }
@@ -935,6 +1064,7 @@ function renderDaily() {
     td.textContent = k === 'kcal' ? fmtNum(dayTotal[k], 0) : fmtNum(dayTotal[k], 1);
     trTotal.appendChild(td);
   });
+  trTotal.appendChild(document.createElement('td'));
   tbody.appendChild(trTotal);
 
   // Target kcal stays hidden until profile support lands.
@@ -950,6 +1080,7 @@ function renderDaily() {
     td.textContent = k === 'kcal' && targetKcal != null ? fmtNum(targetKcal, 0) : '—';
     trTarget.appendChild(td);
   });
+  trTarget.appendChild(document.createElement('td'));
   tbody.appendChild(trTarget);
 
   // Remain row — kcal only.
@@ -966,16 +1097,23 @@ function renderDaily() {
       : '—';
     trRemain.appendChild(td);
   });
+  trRemain.appendChild(document.createElement('td'));
   tbody.appendChild(trRemain);
 
   tbl.appendChild(tbody);
 }
 
 els.clearDayBtn.addEventListener('click', () => {
-  if (!confirm("Clear today's log? Items already logged will be removed.")) return;
+  const date = selectedDate();
+  if (!confirm(`Clear log for ${date}? Items already logged will be removed.`)) return;
   const all = loadDaily();
-  delete all[todayISO()];
+  delete all[date];
   saveDaily(all);
+  renderDaily();
+});
+
+els.dailyDate.addEventListener('change', () => {
+  selectedDailyDate = els.dailyDate.value || todayISO();
   renderDaily();
 });
 
@@ -1061,9 +1199,9 @@ function dayTotals(day) {
 }
 
 function logDay() {
-  const date = todayISO();
+  const date = selectedDate();
   const all = loadDaily();
-  const day = all[date] || blankDay();
+  const day = getDay(all, date);
   const totals = dayTotals(day);
 
   const target = null;
@@ -1186,9 +1324,9 @@ function downloadCSV(filename, rows) {
 }
 
 function exportDailyCSV() {
-  const date = todayISO();
+  const date = selectedDate();
   const all = loadDaily();
-  const day = all[date] || blankDay();
+  const day = getDay(all, date);
   const target = null;
 
   const rows = [['date', 'meal', 'item', ...NUMERIC_COLS]];
