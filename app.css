@@ -637,3 +637,40 @@ main, .fl-app-header, .fl-tabs {
   .fl-table tr.fl-total td { background: #1e293b; }
   .fl-row-del-btn:hover { background: #3f1d1d; }
 }
+
+/* Profile Panel */
+.fl-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--fl-bg-subtle);
+  border-radius: var(--fl-radius);
+  border: 1px solid var(--fl-border);
+  margin-bottom: 16px;
+}
+#fl-profile-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--fl-border);
+  object-fit: cover;
+}
+.fl-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fl-profile-info strong {
+  font-size: 18px;
+}
+.fl-profile-info span {
+  font-size: 14px;
+  color: var(--fl-muted);
+}
+.fl-sync-status {
+  font-size: 12px;
+  color: var(--fl-muted);
+  margin-bottom: 16px;
+}
+

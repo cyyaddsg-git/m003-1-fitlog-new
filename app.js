@@ -173,6 +173,28 @@ Supplements,Performa Whey (Milk Tea),1 serv,140,25.2,0.9,8.1,3.2,2
 Supplements,MyProtein Whey (Choc),1 serv,113,22,1.9,2,1.5,0
 Tofu,Lousam Soft Tofu,100g,53,5.9,2.5,1.8,0,0`;
 
+// ============ Firebase Configuration ============
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAkZEa4mnvTl2tW1__2JBLaEcWgQxD9qfU",
+  authDomain: "fitlog-koala.firebaseapp.com",
+  projectId: "fitlog-koala",
+  storageBucket: "fitlog-koala.firebasestorage.app",
+  messagingSenderId: "245806267209",
+  appId: "1:245806267209:web:d3c9ebc33876344a117898",
+  measurementId: "G-67YPW24858"
+};
+
+// Initialize Firebase (Compat)
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const auth = firebase.auth();
+const db = firebase.firestore();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+let currentUser = null;
+
 // ============ Storage helpers ============
 
 const safeLS = {
@@ -198,6 +220,7 @@ function saveSettings(s) {
   safeLS.set(KEY_API, s.apiKey || '');
   safeLS.set(KEY_MODEL, SUPPORTED_MODELS.includes(s.model) ? s.model : DEFAULT_MODEL);
   safeLS.set(KEY_PROMPT, s.systemPrompt ?? '');
+  syncToFirestore('settings', s);
 }
 
 function parseCSVLine(line) {
@@ -273,13 +296,27 @@ function loadLibrary() {
   safeLS.set(KEY_LIBRARY_SEED, DEFAULT_LIBRARY_VERSION);
   return merged;
 }
-function saveLibrary(lib) { safeLS.setJSON(KEY_LIBRARY, lib); }
+function saveLibrary(lib) {
+  safeLS.setJSON(KEY_LIBRARY, lib);
+  syncToFirestore('library', lib);
+}
 function loadDaily() { return safeLS.getJSON(KEY_DAILY, {}); }
-function saveDaily(d) { safeLS.setJSON(KEY_DAILY, d); }
+function saveDaily(d) {
+  safeLS.setJSON(KEY_DAILY, d);
+  syncToFirestore('dailyLog', d);
+}
 function loadHistory() { return safeLS.getJSON(KEY_HISTORY, []); }
-function saveHistory(h) { safeLS.setJSON(KEY_HISTORY, h); }
+function saveHistory(h) {
+  // Prune to 30 days
+  const pruned = h.slice(0, 30);
+  safeLS.setJSON(KEY_HISTORY, pruned);
+  syncToFirestore('foodHistory', pruned);
+}
 function loadGym() { return safeLS.getJSON(KEY_GYM, {}); }
-function saveGym(g) { safeLS.setJSON(KEY_GYM, g); }
+function saveGym(g) {
+  safeLS.setJSON(KEY_GYM, g);
+  syncToFirestore('gymLog', g);
+}
 
 // ============ Utilities ============
 
@@ -508,6 +545,14 @@ const els = {
   gymClearDay: $('#fl-gym-clear-day'),
   gymHistory: $('#fl-gym-history'),
   gymHistoryEmpty: $('#fl-gym-history-empty'),
+  profileOut: $('#fl-profile-out'),
+  profileIn: $('#fl-profile-in'),
+  profileImg: $('#fl-profile-img'),
+  profileName: $('#fl-profile-name'),
+  profileEmail: $('#fl-profile-email'),
+  signinBtn: $('#fl-signin-btn'),
+  signoutBtn: $('#fl-signout-btn'),
+  syncStatus: $('#fl-sync-status'),
 };
 
 // ============ UI helpers ============
@@ -534,6 +579,7 @@ function showTab(name) {
   els.panels.forEach((p) => { p.hidden = p.dataset.panel !== name; });
   if (name === 'library') renderLibrary();
   if (name === 'gym') renderGym();
+  if (name === 'profile') updateProfileUI();
 }
 
 // ============ Settings modal ============
@@ -1738,6 +1784,144 @@ function exportHistoryCSV() {
 
 els.exportDailyBtn.addEventListener('click', exportDailyCSV);
 els.exportHistoryBtn.addEventListener('click', exportHistoryCSV);
+
+// ============ Authentication ============
+
+async function signInWithGoogle() {
+  try {
+    await auth.signInWithPopup(googleProvider);
+  } catch (e) {
+    console.error('[fitlog] sign-in error', e);
+    setStatus('Sign-in failed: ' + e.message, 'error');
+  }
+}
+
+async function signOut() {
+  if (!confirm('Sign out? Offline data stays on this device, but sync will stop.')) return;
+  try {
+    await auth.signOut();
+  } catch (e) {
+    console.error('[fitlog] sign-out error', e);
+  }
+}
+
+function setSyncStatus(msg) {
+  if (!els.syncStatus) return;
+  const now = new Date().toLocaleTimeString();
+  els.syncStatus.textContent = msg ? `${msg} (${now})` : '';
+}
+
+async function syncToFirestore(category, data) {
+  if (!currentUser) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('data').doc(category).set({
+      payload: JSON.stringify(data),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    setSyncStatus('Synced to cloud');
+  } catch (e) {
+    console.error(`[fitlog] sync error (${category})`, e);
+    setSyncStatus('Sync failed');
+  }
+}
+
+async function syncAllToFirestore() {
+  if (!currentUser) return;
+  console.info('[fitlog] migrating local data to cloud');
+  await syncToFirestore('settings', loadSettings());
+  await syncToFirestore('library', loadLibrary());
+  await syncToFirestore('dailyLog', loadDaily());
+  await syncToFirestore('foodHistory', loadHistory());
+  await syncToFirestore('gymLog', loadGym());
+}
+
+async function syncFromFirestore() {
+  if (!currentUser) return;
+  setSyncStatus('Syncing from cloud…');
+  try {
+    const snap = await db.collection('users').doc(currentUser.uid).collection('data').get();
+    if (snap.empty) {
+      // Cloud is empty, push local data (first time migration)
+      await syncAllToFirestore();
+      setSyncStatus('Local data migrated to cloud');
+      return;
+    }
+    let hasChanges = false;
+    snap.forEach((doc) => {
+      const category = doc.id;
+      const data = JSON.parse(doc.data().payload);
+      
+      // Simple merge: cloud wins if local is empty or for history categories.
+      // In a real app, we'd use timestamps per item.
+      if (category === 'settings') {
+        const local = loadSettings();
+        if (data.apiKey && !local.apiKey) {
+          state = data;
+          saveSettings(data);
+          hasChanges = true;
+        }
+      } else if (category === 'library') {
+        const local = loadLibrary();
+        if (data.length > local.length) { saveLibrary(data); hasChanges = true; }
+      } else if (category === 'dailyLog') {
+        const local = loadDaily();
+        const merged = { ...local, ...data };
+        saveDaily(merged);
+        hasChanges = true;
+      } else if (category === 'foodHistory') {
+        saveHistory(data);
+        hasChanges = true;
+      } else if (category === 'gymLog') {
+        const local = loadGym();
+        const merged = { ...local, ...data };
+        saveGym(merged);
+        hasChanges = true;
+      }
+    });
+    
+    if (hasChanges) {
+      renderDaily();
+      renderHistory();
+      renderLibrary();
+      renderGym();
+    }
+    setSyncStatus('Synced from cloud');
+  } catch (e) {
+    console.error('[fitlog] sync-from error', e);
+    setSyncStatus('Sync failed');
+  }
+}
+
+function updateProfileUI() {
+  if (currentUser) {
+    els.profileOut.hidden = true;
+    els.profileIn.hidden = false;
+    els.profileImg.src = currentUser.photoURL || '';
+    els.profileName.textContent = currentUser.displayName || 'No Name';
+    els.profileEmail.textContent = currentUser.email || 'No Email';
+  } else {
+    els.profileOut.hidden = false;
+    els.profileIn.hidden = true;
+    els.profileImg.src = '';
+    els.profileName.textContent = '';
+    els.profileEmail.textContent = '';
+    els.syncStatus.textContent = '';
+  }
+}
+
+auth.onAuthStateChanged((user) => {
+  const changed = (currentUser?.uid !== user?.uid);
+  currentUser = user;
+  console.info('[fitlog] auth state', user ? `signed-in: ${user.uid}` : 'signed-out');
+  updateProfileUI();
+  
+  if (changed && user) {
+    syncFromFirestore();
+  }
+});
+
+els.signinBtn.addEventListener('click', signInWithGoogle);
+els.signoutBtn.addEventListener('click', signOut);
 
 // ============ Init ============
 

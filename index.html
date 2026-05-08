@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>FitLog · M003-1</title>
 <link rel="stylesheet" href="./app.css" />
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -17,6 +20,7 @@
   <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true">FoodLog</button>
   <button type="button" class="fl-tab" data-tab="library" role="tab" aria-selected="false">FoodLibrary</button>
   <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false">GymLog</button>
+  <button type="button" class="fl-tab" data-tab="profile" role="tab" aria-selected="false">Profile</button>
 </nav>
 
 <main>
@@ -131,6 +135,27 @@
     <div class="fl-gym-history-deck" id="fl-gym-history"></div>
     <p class="fl-empty" id="fl-gym-history-empty" hidden>No GymLog days yet.</p>
   </section>
+</section>
+
+<!-- ============ Profile tab ============ -->
+<section class="fl-panel" data-panel="profile" role="tabpanel" hidden>
+  <div id="fl-profile-out">
+    <h2>Account</h2>
+    <p>Sign in to sync your logs and library across devices.</p>
+    <button type="button" class="fl-log-btn" id="fl-signin-btn">Sign in with Google</button>
+  </div>
+  <div id="fl-profile-in" hidden>
+    <h2>Your Profile</h2>
+    <div class="fl-profile-card">
+      <img id="fl-profile-img" src="" alt="Profile" />
+      <div class="fl-profile-info">
+        <strong id="fl-profile-name"></strong>
+        <span id="fl-profile-email"></span>
+      </div>
+    </div>
+    <div class="fl-sync-status" id="fl-sync-status"></div>
+    <button type="button" class="fl-clear-history-btn" id="fl-signout-btn">Sign out</button>
+  </div>
 </section>
 
 </main>
