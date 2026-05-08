@@ -14,13 +14,14 @@
 </header>
 
 <nav class="fl-tabs" role="tablist">
-  <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true">Logging</button>
-  <button type="button" class="fl-tab" data-tab="library" role="tab" aria-selected="false">Library</button>
+  <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true">FoodLog</button>
+  <button type="button" class="fl-tab" data-tab="library" role="tab" aria-selected="false">FoodLibrary</button>
+  <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false">GymLog</button>
 </nav>
 
 <main>
 
-<!-- ============ Logging tab ============ -->
+<!-- ============ FoodLog tab ============ -->
 <section class="fl-panel" data-panel="logging" role="tabpanel">
 
   <div class="fl-input-row">
@@ -80,16 +81,21 @@
 
 </section>
 
-<!-- ============ Library tab ============ -->
+<!-- ============ FoodLibrary tab ============ -->
 <section class="fl-panel" data-panel="library" role="tabpanel" hidden>
   <div class="fl-library-header">
     <span class="fl-library-count" id="fl-library-count">0 items</span>
-    <button type="button" class="fl-library-clear" id="fl-library-clear">Clear all</button>
+    <button type="button" class="fl-library-clear" id="fl-library-clear">Clear user items</button>
   </div>
   <div class="fl-table-wrap">
     <table class="fl-table" id="fl-library-table"></table>
   </div>
-  <p class="fl-empty" id="fl-library-empty" hidden>No items yet — add some from the Logging tab's preview rows.</p>
+  <p class="fl-empty" id="fl-library-empty" hidden>No FoodLibrary items yet — add some from FoodLog preview rows.</p>
+</section>
+
+<!-- ============ GymLog tab ============ -->
+<section class="fl-panel" data-panel="gym" role="tabpanel" hidden>
+  <p class="fl-empty">GymLog will be added in Phase 2.</p>
 </section>
 
 </main>

@@ -23,8 +23,9 @@ Linked to Vercel project `fitlog-koala` under cyyaddsg-git. Pushes to `main` dep
 
 ## What's in V1
 
-- **Logging tab** — describe a meal in any language, Send → Gemini returns a JSON nutrition table. Pick a meal slot (Breakfast / Lunch / Dinner / Snack), Log → appended to the selected Daily Log date. Preview rows can be removed before logging, and each row has a "+ Library" button.
-- **Library tab** — per-item saved entries (item, brand, qty, unit, kcal, p, f, c, su, fb). Used by the Send flow to inject `LIBRARY_CONTEXT` into the Gemini prompt so matched items reuse saved values verbatim.
+- **FoodLog tab** — describe a meal in any language, Send → Gemini returns a JSON nutrition table. Pick a meal slot (Breakfast / Lunch / Dinner / Snack), Log → appended to the selected Daily Log date. Preview rows can be removed before logging, and each row has a "+ FoodLibrary" button.
+- **FoodLibrary tab** — host seed entries plus user-added entries (item, brand, qty, unit, kcal, p, f, c, su, fb). Host entries are read-only in V1. User entries can be deleted and are used by the Send flow to inject `LIBRARY_CONTEXT` into the Gemini prompt so matched items reuse saved values verbatim.
+- **GymLog tab** — Phase 2 placeholder.
 - **Daily Log** — selectable 30-day local date window, expandable Breakfast / Lunch / Dinner / Snack rows, per-item removal, Total + (V2) Target / Remain.
 
 ## Out of scope for V1

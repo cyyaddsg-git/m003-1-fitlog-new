@@ -762,12 +762,12 @@ function renderPreview(parsed) {
       btn.type = 'button';
       btn.className = 'fl-row-add-btn';
       if (isLibraryRow) {
-        btn.textContent = 'In Library';
-        btn.title = 'This item is already from Library';
+        btn.textContent = 'In FoodLibrary';
+        btn.title = 'This item is already from FoodLibrary';
         btn.disabled = true;
       } else {
-        btn.textContent = '+ Library';
-        btn.title = 'Add this item to Library';
+        btn.textContent = '+ FoodLibrary';
+        btn.title = 'Add this item to FoodLibrary';
         btn.addEventListener('click', () => addRowToLibrary(r, btn));
       }
       tdAdd.appendChild(btn);
@@ -811,7 +811,7 @@ els.input.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); send(); }
 });
 
-// ============ Add to Library (per item) ============
+// ============ Add to FoodLibrary (per item) ============
 
 function addRowToLibrary(row, btn) {
   // Parse "name 150g" → item + qty/unit best-effort.
@@ -1117,9 +1117,13 @@ els.dailyDate.addEventListener('change', () => {
   renderDaily();
 });
 
-// ============ Library tab ============
+// ============ FoodLibrary tab ============
 
 const LIB_COLS = ['item', 'serving', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
+
+function isHostLibraryEntry(entry) {
+  return String(entry?.id ?? '').startsWith('seed-') || entry?.addedAt === DEFAULT_LIBRARY_VERSION;
+}
 
 function renderLibrary() {
   const lib = loadLibrary();
@@ -1162,17 +1166,19 @@ function renderLibrary() {
       tr.appendChild(td);
     });
     const tdDel = document.createElement('td');
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'fl-row-del-btn';
-    del.textContent = '×';
-    del.title = 'Delete';
-    del.addEventListener('click', () => {
-      const cur = loadLibrary().filter((x) => x.id !== entry.id);
-      saveLibrary(cur);
-      renderLibrary();
-    });
-    tdDel.appendChild(del);
+    if (!isHostLibraryEntry(entry)) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'fl-row-del-btn';
+      del.textContent = '×';
+      del.title = 'Delete user item';
+      del.addEventListener('click', () => {
+        const cur = loadLibrary().filter((x) => x.id !== entry.id);
+        saveLibrary(cur);
+        renderLibrary();
+      });
+      tdDel.appendChild(del);
+    }
     tr.appendChild(tdDel);
     tbody.appendChild(tr);
   });
@@ -1180,8 +1186,8 @@ function renderLibrary() {
 }
 
 els.libraryClear.addEventListener('click', () => {
-  if (!confirm("Clear entire library? This can't be undone.")) return;
-  saveLibrary([]);
+  if (!confirm("Clear user-added FoodLibrary items? Host items will remain.")) return;
+  saveLibrary(loadLibrary().filter(isHostLibraryEntry));
   renderLibrary();
 });
 
