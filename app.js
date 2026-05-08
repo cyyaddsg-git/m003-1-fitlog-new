@@ -1845,10 +1845,12 @@ async function syncAllToFirestore() {
 async function syncFromFirestore() {
   if (!currentUser) return;
   setSyncStatus('Syncing from cloud…');
+  console.info('[fitlog] sync: starting fetch for uid', currentUser.uid);
   try {
     const snap = await db.collection('users').doc(currentUser.uid).collection('data').get();
+    console.info('[fitlog] sync: cloud snap received, docs:', snap.size);
     if (snap.empty) {
-      // Cloud is empty, push local data (first time migration)
+      console.info('[fitlog] sync: cloud empty, pushing local');
       await syncAllToFirestore();
       setSyncStatus('Local data migrated to cloud');
       return;
@@ -1856,11 +1858,14 @@ async function syncFromFirestore() {
     let hasChanges = false;
     snap.forEach((doc) => {
       const category = doc.id;
-      const data = JSON.parse(doc.data().payload);
-      
-      // Simple merge: cloud wins if local is empty or for history categories.
-      // In a real app, we'd use timestamps per item.
-      if (category === 'settings') {
+      let data;
+      try {
+        data = JSON.parse(doc.data().payload);
+      } catch (e) {
+        console.error(`[fitlog] sync: failed to parse ${category}`, e);
+        return;
+      }
+      console.info(`[fitlog] sync: processing ${category}`);
         const local = loadSettings();
         if (data.apiKey && !local.apiKey) {
           state = data;
