@@ -1866,6 +1866,7 @@ async function syncFromFirestore() {
         return;
       }
       console.info(`[fitlog] sync: processing ${category}`);
+      if (category === 'settings') {
         const local = loadSettings();
         if (data.apiKey && !local.apiKey) {
           state = data;
