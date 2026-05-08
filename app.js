@@ -14,6 +14,7 @@ const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_LIBRARY_SEED = `${STORAGE_PREFIX}_librarySeedVersion`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
 const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
+const KEY_GYM = `${STORAGE_PREFIX}_gymLog`;
 
 const SUPPORTED_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
@@ -62,6 +63,22 @@ const NUMERIC_COLS = ['kcal', 'p', 'f', 'c', 'su', 'fb'];
 const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
 const DAILY_DATE_WINDOW_DAYS = 30;
+const GYM_ACTIVITIES = [
+  { group: 'Weight Training', kind: 'weight', name: 'Bench Press' },
+  { group: 'Weight Training', kind: 'weight', name: 'Squat' },
+  { group: 'Weight Training', kind: 'weight', name: 'Deadlift' },
+  { group: 'Weight Training', kind: 'weight', name: 'Leg Press' },
+  { group: 'Weight Training', kind: 'weight', name: 'Lat Pulldown' },
+  { group: 'Weight Training', kind: 'weight', name: 'Seated Row' },
+  { group: 'Weight Training', kind: 'weight', name: 'Shoulder Press' },
+  { group: 'Weight Training', kind: 'weight', name: 'Bicep Curl' },
+  { group: 'Weight Training', kind: 'weight', name: 'Tricep Pushdown' },
+  { group: 'Weight Training', kind: 'weight', name: 'Lateral Raise' },
+  { group: 'Cardio', kind: 'cardio', name: 'Treadmill' },
+  { group: 'Cardio', kind: 'cardio', name: 'Cycling' },
+  { group: 'Cardio', kind: 'cardio', name: 'Rowing Machine' },
+  { group: 'Cardio', kind: 'cardio', name: 'Elliptical' },
+];
 
 const DEFAULT_SYSTEM_PROMPT = `You are a nutrition estimator. The user describes a meal in any language with portions and skip-eat notes. Output JSON ONLY in this exact shape:
 
@@ -261,6 +278,8 @@ function loadDaily() { return safeLS.getJSON(KEY_DAILY, {}); }
 function saveDaily(d) { safeLS.setJSON(KEY_DAILY, d); }
 function loadHistory() { return safeLS.getJSON(KEY_HISTORY, []); }
 function saveHistory(h) { safeLS.setJSON(KEY_HISTORY, h); }
+function loadGym() { return safeLS.getJSON(KEY_GYM, {}); }
+function saveGym(g) { safeLS.setJSON(KEY_GYM, g); }
 
 // ============ Utilities ============
 
@@ -439,6 +458,8 @@ function buildPromptWithContext(basePrompt, matched) {
 let state = loadSettings();
 let lastPreview = null; // { rows: [...], notes: [...] }
 let selectedDailyDate = todayISO();
+let selectedGymDate = todayISO();
+let gymDraftRows = [{ kg: '', rep: '' }];
 
 // ============ DOM refs ============
 
@@ -475,6 +496,18 @@ const els = {
   libraryClear: $('#fl-library-clear'),
   libraryTable: $('#fl-library-table'),
   libraryEmpty: $('#fl-library-empty'),
+  gymActivity: $('#fl-gym-activity'),
+  gymCustomWrap: $('#fl-gym-custom-wrap'),
+  gymCustom: $('#fl-gym-custom'),
+  gymSets: $('#fl-gym-sets'),
+  gymAddSet: $('#fl-gym-add-set'),
+  gymLogBtn: $('#fl-gym-log-btn'),
+  gymValidation: $('#fl-gym-validation'),
+  gymDate: $('#fl-gym-date'),
+  gymTable: $('#fl-gym-table'),
+  gymClearDay: $('#fl-gym-clear-day'),
+  gymHistory: $('#fl-gym-history'),
+  gymHistoryEmpty: $('#fl-gym-history-empty'),
 };
 
 // ============ UI helpers ============
@@ -500,6 +533,7 @@ function showTab(name) {
   });
   els.panels.forEach((p) => { p.hidden = p.dataset.panel !== name; });
   if (name === 'library') renderLibrary();
+  if (name === 'gym') renderGym();
 }
 
 // ============ Settings modal ============
@@ -1116,6 +1150,339 @@ els.dailyDate.addEventListener('change', () => {
   selectedDailyDate = els.dailyDate.value || todayISO();
   renderDaily();
 });
+
+// ============ GymLog tab ============
+
+function selectedGymActivity() {
+  const raw = els.gymActivity.value || '';
+  const [kind, ...nameParts] = raw.split(':');
+  const name = nameParts.join(':');
+  if (kind === 'custom-weight' || kind === 'custom-cardio') {
+    return {
+      kind: kind === 'custom-cardio' ? 'cardio' : 'weight',
+      name: els.gymCustom.value.trim(),
+      custom: true,
+    };
+  }
+  return { kind, name, custom: false };
+}
+
+function blankGymRow(kind) {
+  return kind === 'cardio'
+    ? { speed: '', incline: '', time: '' }
+    : { kg: '', rep: '' };
+}
+
+function normalizeGymRows(rows, kind) {
+  return rows.map((r) => kind === 'cardio'
+    ? { speed: String(r.speed ?? ''), incline: String(r.incline ?? ''), time: String(r.time ?? '') }
+    : { kg: String(r.kg ?? ''), rep: String(r.rep ?? '') });
+}
+
+function gymDay(all, date) {
+  const day = all[date];
+  return day && Array.isArray(day.activities) ? day : { activities: [] };
+}
+
+function renderGymActivityOptions() {
+  els.gymActivity.innerHTML = '';
+  const groups = [...new Set(GYM_ACTIVITIES.map((a) => a.group))];
+  groups.forEach((group) => {
+    const og = document.createElement('optgroup');
+    og.label = group;
+    GYM_ACTIVITIES.filter((a) => a.group === group).forEach((a) => {
+      const opt = document.createElement('option');
+      opt.value = `${a.kind}:${a.name}`;
+      opt.textContent = a.name;
+      og.appendChild(opt);
+    });
+    els.gymActivity.appendChild(og);
+  });
+  const custom = document.createElement('optgroup');
+  custom.label = 'Custom';
+  [
+    ['custom-weight:', 'Custom weight activity'],
+    ['custom-cardio:', 'Custom cardio activity'],
+  ].forEach(([value, label]) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    custom.appendChild(opt);
+  });
+  els.gymActivity.appendChild(custom);
+}
+
+function showGymValidation(msg) {
+  if (!msg) { els.gymValidation.hidden = true; els.gymValidation.textContent = ''; return; }
+  els.gymValidation.hidden = false;
+  els.gymValidation.textContent = msg;
+}
+
+function renderGymDateOptions() {
+  const dates = dailyDateOptions();
+  if (!dates.includes(selectedGymDate)) dates.unshift(selectedGymDate);
+  els.gymDate.innerHTML = '';
+  dates.forEach((date) => {
+    const opt = document.createElement('option');
+    opt.value = date;
+    opt.textContent = date === todayISO() ? `${date} (today)` : date;
+    els.gymDate.appendChild(opt);
+  });
+  els.gymDate.value = selectedGymDate;
+}
+
+function renderGymDraft() {
+  const activity = selectedGymActivity();
+  const isCustom = activity.custom;
+  els.gymCustomWrap.hidden = !isCustom;
+  els.gymAddSet.textContent = activity.kind === 'cardio' ? 'Add interval' : 'Add set';
+
+  gymDraftRows = normalizeGymRows(gymDraftRows, activity.kind);
+  if (!gymDraftRows.length) gymDraftRows = [blankGymRow(activity.kind)];
+
+  els.gymSets.innerHTML = '';
+  gymDraftRows.forEach((row, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'fl-gym-set-row';
+    wrap.classList.add(activity.kind === 'cardio' ? 'fl-gym-cardio-row' : 'fl-gym-weight-row');
+
+    const badge = document.createElement('span');
+    badge.className = 'fl-gym-set-index';
+    badge.textContent = String(idx + 1);
+    wrap.appendChild(badge);
+
+    const fields = activity.kind === 'cardio'
+      ? [['speed', 'Speed'], ['incline', 'Incline'], ['time', 'Time min']]
+      : [['kg', 'kg'], ['rep', 'rep']];
+
+    fields.forEach(([key, label]) => {
+      const field = document.createElement('label');
+      field.textContent = label;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.inputMode = 'decimal';
+      input.min = '0';
+      input.step = key === 'rep' || key === 'time' ? '1' : '0.1';
+      input.value = row[key] || '';
+      input.addEventListener('input', () => {
+        gymDraftRows[idx] = { ...gymDraftRows[idx], [key]: input.value };
+      });
+      field.appendChild(input);
+      wrap.appendChild(field);
+    });
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'fl-row-del-btn';
+    del.textContent = '×';
+    del.title = activity.kind === 'cardio' ? 'Remove interval' : 'Remove set';
+    del.disabled = gymDraftRows.length <= 1;
+    del.addEventListener('click', () => {
+      if (gymDraftRows.length <= 1) return;
+      gymDraftRows.splice(idx, 1);
+      renderGymDraft();
+    });
+    wrap.appendChild(del);
+    els.gymSets.appendChild(wrap);
+  });
+}
+
+function addGymDraftRow() {
+  const activity = selectedGymActivity();
+  const last = gymDraftRows[gymDraftRows.length - 1] || blankGymRow(activity.kind);
+  gymDraftRows.push({ ...last });
+  renderGymDraft();
+}
+
+function validGymRows(kind) {
+  return normalizeGymRows(gymDraftRows, kind).filter((r) => {
+    if (kind === 'cardio') return r.speed || r.incline || r.time;
+    return r.kg || r.rep;
+  });
+}
+
+function logGymActivity() {
+  showGymValidation(null);
+  const activity = selectedGymActivity();
+  if (!activity.name) {
+    showGymValidation('Choose or type an activity first.');
+    return;
+  }
+  const rows = validGymRows(activity.kind);
+  if (!rows.length) {
+    showGymValidation(activity.kind === 'cardio'
+      ? 'Fill at least one speed, incline, or time value.'
+      : 'Fill at least one kg or rep value.');
+    return;
+  }
+
+  const date = selectedGymDate || todayISO();
+  const all = loadGym();
+  const day = gymDay(all, date);
+  day.activities.push({
+    id: uid(),
+    name: activity.name,
+    kind: activity.kind,
+    rows,
+  });
+  all[date] = day;
+  saveGym(all);
+  gymDraftRows = [blankGymRow(activity.kind)];
+  if (activity.custom) els.gymCustom.value = '';
+  renderGym();
+}
+
+function gymMetricText(activity) {
+  const rows = Array.isArray(activity.rows) ? activity.rows : [];
+  if (!rows.length) return '—';
+  return rows.map((r, idx) => {
+    if (activity.kind === 'cardio') {
+      const parts = [];
+      if (r.speed) parts.push(`speed ${r.speed}`);
+      if (r.incline) parts.push(`incline ${r.incline}`);
+      if (r.time) parts.push(`${r.time} min`);
+      return `interval ${idx + 1}: ${parts.join(', ') || '—'}`;
+    }
+    const kg = r.kg ? `${r.kg}kg` : '—kg';
+    const rep = r.rep ? `${r.rep}rep` : '—rep';
+    return `set ${idx + 1}: ${kg} x ${rep}`;
+  }).join('; ');
+}
+
+function renderGymTable(tbl, activities, opts = {}) {
+  tbl.innerHTML = '';
+  const hasAction = Boolean(opts.onDelete);
+  const thead = document.createElement('thead');
+  const trh = document.createElement('tr');
+  ['#', 'Activity', 'Metrics'].forEach((h) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    if (h === '#') th.classList.add('fl-num');
+    trh.appendChild(th);
+  });
+  if (hasAction) trh.appendChild(document.createElement('th'));
+  thead.appendChild(trh);
+  tbl.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  if (!activities.length) {
+    const tr = document.createElement('tr');
+    tr.className = 'fl-empty-row';
+    const td = document.createElement('td');
+    td.colSpan = hasAction ? 4 : 3;
+    td.textContent = '(no activities)';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  } else {
+    activities.forEach((activity, idx) => {
+      const tr = document.createElement('tr');
+      const tdSeq = document.createElement('td');
+      tdSeq.className = 'fl-num';
+      tdSeq.textContent = String(idx + 1);
+      tr.appendChild(tdSeq);
+
+      const tdName = document.createElement('td');
+      tdName.textContent = activity.name || '';
+      tr.appendChild(tdName);
+
+      const tdMetrics = document.createElement('td');
+      tdMetrics.className = 'fl-gym-metrics';
+      tdMetrics.textContent = gymMetricText(activity);
+      tr.appendChild(tdMetrics);
+
+      if (hasAction) {
+        const tdDel = document.createElement('td');
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'fl-row-del-btn';
+        del.textContent = '×';
+        del.title = 'Remove activity';
+        del.addEventListener('click', () => opts.onDelete(idx));
+        tdDel.appendChild(del);
+        tr.appendChild(tdDel);
+      }
+      tbody.appendChild(tr);
+    });
+  }
+  tbl.appendChild(tbody);
+}
+
+function removeGymActivity(date, index) {
+  const all = loadGym();
+  const day = gymDay(all, date);
+  day.activities.splice(index, 1);
+  if (day.activities.length) all[date] = day;
+  else delete all[date];
+  saveGym(all);
+  renderGym();
+}
+
+function renderGymHistory(all) {
+  const dates = Object.keys(all)
+    .filter((date) => Array.isArray(all[date]?.activities) && all[date].activities.length)
+    .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+
+  els.gymHistory.innerHTML = '';
+  els.gymHistoryEmpty.hidden = dates.length > 0;
+  dates.forEach((date) => {
+    const card = document.createElement('article');
+    card.className = 'fl-gym-history-card';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'fl-gym-history-date';
+    btn.textContent = date === todayISO() ? `${date} (today)` : date;
+    btn.addEventListener('click', () => {
+      selectedGymDate = date;
+      renderGym();
+      els.gymDate.focus();
+    });
+    card.appendChild(btn);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'fl-table-wrap';
+    const tbl = document.createElement('table');
+    tbl.className = 'fl-table fl-gym-table';
+    renderGymTable(tbl, all[date].activities);
+    wrap.appendChild(tbl);
+    card.appendChild(wrap);
+    els.gymHistory.appendChild(card);
+  });
+}
+
+function renderGym() {
+  renderGymDateOptions();
+  renderGymDraft();
+  const all = loadGym();
+  const day = gymDay(all, selectedGymDate);
+  renderGymTable(els.gymTable, day.activities, {
+    onDelete: (idx) => removeGymActivity(selectedGymDate, idx),
+  });
+  renderGymHistory(all);
+}
+
+function clearGymDay() {
+  const date = selectedGymDate || todayISO();
+  if (!confirm(`Clear GymLog for ${date}? Activities already logged will be removed.`)) return;
+  const all = loadGym();
+  delete all[date];
+  saveGym(all);
+  renderGym();
+}
+
+renderGymActivityOptions();
+els.gymActivity.addEventListener('change', () => {
+  const activity = selectedGymActivity();
+  gymDraftRows = [blankGymRow(activity.kind)];
+  showGymValidation(null);
+  renderGymDraft();
+});
+els.gymAddSet.addEventListener('click', addGymDraftRow);
+els.gymLogBtn.addEventListener('click', logGymActivity);
+els.gymDate.addEventListener('change', () => {
+  selectedGymDate = els.gymDate.value || todayISO();
+  renderGym();
+});
+els.gymClearDay.addEventListener('click', clearGymDay);
 
 // ============ FoodLibrary tab ============
 

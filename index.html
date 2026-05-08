@@ -95,7 +95,42 @@
 
 <!-- ============ GymLog tab ============ -->
 <section class="fl-panel" data-panel="gym" role="tabpanel" hidden>
-  <p class="fl-empty">GymLog will be added in Phase 2.</p>
+  <section class="fl-gym-entry">
+    <h2>Log Activity</h2>
+    <div class="fl-gym-form">
+      <label>Activity
+        <select id="fl-gym-activity"></select>
+      </label>
+      <label id="fl-gym-custom-wrap" hidden>Custom activity
+        <input type="text" id="fl-gym-custom" placeholder="Activity name" />
+      </label>
+    </div>
+    <div class="fl-gym-sets" id="fl-gym-sets"></div>
+    <div class="fl-gym-actions">
+      <button type="button" class="fl-export-btn" id="fl-gym-add-set">Add set</button>
+      <button type="button" class="fl-log-day-btn" id="fl-gym-log-btn">Log Activity</button>
+    </div>
+    <div class="fl-validation" id="fl-gym-validation" hidden></div>
+  </section>
+
+  <section class="fl-gym-daily">
+    <h2>
+      <span>GymLog</span>
+      <select class="fl-daily-date" id="fl-gym-date" aria-label="GymLog date"></select>
+    </h2>
+    <div class="fl-table-wrap">
+      <table class="fl-table fl-gym-table" id="fl-gym-table"></table>
+    </div>
+    <div class="fl-daily-actions">
+      <button type="button" class="fl-clear-day-btn" id="fl-gym-clear-day">Clear day</button>
+    </div>
+  </section>
+
+  <section class="fl-gym-history">
+    <h2>GymLog History</h2>
+    <div class="fl-gym-history-deck" id="fl-gym-history"></div>
+    <p class="fl-empty" id="fl-gym-history-empty" hidden>No GymLog days yet.</p>
+  </section>
 </section>
 
 </main>
