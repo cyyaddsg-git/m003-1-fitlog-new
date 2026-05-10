@@ -10,6 +10,7 @@ const STORAGE_PREFIX = 'm003_1';
 const KEY_API = `${STORAGE_PREFIX}_apiKey`;
 const KEY_MODEL = `${STORAGE_PREFIX}_model`;
 const KEY_PROMPT = `${STORAGE_PREFIX}_systemPrompt`;
+const KEY_PROMPT_VERSION = `${STORAGE_PREFIX}_systemPromptVersion`;
 const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_LIBRARY_SEED = `${STORAGE_PREFIX}_librarySeedVersion`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
@@ -99,14 +100,15 @@ Rules:
 - The last row MUST be {"item":"Total", ...} with column-wise sums.
 - For skips like "skip eat 80%", reflect actual eaten portion in numbers AND label (e.g. "anchovies, ate 20%").
 - Item labels in English. Every non-Total item label MUST include the exact serving amount used for that row's nutrition values.
-- Prefer measurable serving units such as g or ml whenever the food or drink can be measured that way (e.g. "nasi 150g", "kopitiam teh c kosong 250ml"). The serving amount in the label must be the same serving basis used for kcal/p/f/c/su/fb.
+- Prefer measurable serving units such as g or ml whenever the food or drink can be measured that way (e.g. "rice 150g", "black tea 250ml"). The serving amount in the label must be the same serving basis used for kcal/p/f/c/su/fb.
 - No additional columns. No markdown. JSON only.
 
 Library priority:
 - If a LIBRARY_CONTEXT block is appended below, those entries are pre-saved by the user with brand/portion-specific values.
 - For each user-described item, first check LIBRARY_CONTEXT for a match (by item name + brand). If found, copy that entry's per-portion values (scaling to user-stated portion if needed) and prefix the item label with "[lib] ".
-- Otherwise estimate using brand information the user provided. If brand is ambiguous, portion is unspecified, or the dish is unrecognizable, add a "notes" line asking the user to clarify (e.g. "Specify brand for nasi lemak — kcal varies 400–700 across kopitiam vs packaged"). The user can refine and re-send.`;
+- Otherwise estimate from your knowledge using brand information the user provided. If brand is ambiguous, portion is unspecified, or the item is unrecognizable, add a "notes" line asking the user to clarify. Output ONLY the items described by the user.`;
 
+const SYSTEM_PROMPT_VERSION = '2026-05-08-v2';
 const DEFAULT_LIBRARY_VERSION = '2026-05-07-reference';
 const DEFAULT_LIBRARY_CSV = `Category,Item,Size,kcal,Protein (g),Fat (g),Carb (g),Sugar (g),Fiber (g)
 Beverage,GutC Better Soda (Mixed Berries),1 can (250ml),15,0,0,3.8,1.3,6
@@ -209,6 +211,13 @@ const safeLS = {
 };
 
 function loadSettings() {
+  const version = safeLS.get(KEY_PROMPT_VERSION);
+  if (version !== SYSTEM_PROMPT_VERSION) {
+    // Force update the prompt if version changed.
+    safeLS.set(KEY_PROMPT, DEFAULT_SYSTEM_PROMPT);
+    safeLS.set(KEY_PROMPT_VERSION, SYSTEM_PROMPT_VERSION);
+  }
+
   return {
     apiKey: safeLS.get(KEY_API) || '',
     model: SUPPORTED_MODELS.includes(safeLS.get(KEY_MODEL)) ? safeLS.get(KEY_MODEL) : DEFAULT_MODEL,
@@ -220,6 +229,7 @@ function saveSettings(s) {
   safeLS.set(KEY_API, s.apiKey || '');
   safeLS.set(KEY_MODEL, SUPPORTED_MODELS.includes(s.model) ? s.model : DEFAULT_MODEL);
   safeLS.set(KEY_PROMPT, s.systemPrompt ?? '');
+  safeLS.set(KEY_PROMPT_VERSION, SYSTEM_PROMPT_VERSION);
   syncToFirestore('settings', s);
 }
 
@@ -463,13 +473,42 @@ function tokenize(s) {
 function libraryLookup(input, library) {
   const tokens = tokenize(input);
   if (!tokens.length || !library.length) return [];
-  const matched = [];
+  
+  const scored = [];
+  const seen = new Set();
+
   for (const entry of library) {
-    const hay = (entry.item + ' ' + (entry.brand || '')).toLowerCase();
-    const hit = tokens.some((t) => hay.includes(t));
-    if (hit) matched.push(entry);
+    const item = String(entry.item || '').toLowerCase();
+    const brand = String(entry.brand || '').toLowerCase();
+    const hay = `${item} ${brand}`;
+    
+    let score = 0;
+    for (const t of tokens) {
+      if (hay.includes(t)) {
+        score += 1;
+        // Bonus for word-boundary match to avoid "ice" matching "rice"
+        const regex = new RegExp(`\\b${t}\\b`, 'i');
+        if (regex.test(hay)) score += 2;
+        // Bonus for "starts with"
+        if (item.startsWith(t)) score += 1;
+      }
+    }
+    
+    if (score > 0) {
+      // Deduplicate by item|brand|serving
+      const key = `${entry.item}|${entry.brand}|${entry.serving || entry.qty + entry.unit}`;
+      if (!seen.has(key)) {
+        scored.push({ entry, score });
+        seen.add(key);
+      }
+    }
   }
-  return matched;
+  
+  // Sort by score descending and limit to top 12 matches to keep prompt focused.
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 12)
+    .map((s) => s.entry);
 }
 
 function buildPromptWithContext(basePrompt, matched) {
