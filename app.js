@@ -876,11 +876,21 @@ function renderPreview(parsed) {
     });
     const tdAdd = document.createElement('td');
     if (!isTotal) {
-      const isLibraryRow = /^\s*\[lib\]/i.test(String(r.item ?? ''));
+      const label = String(r.item ?? '').trim();
+      const isLibraryTagged = /^\s*\[lib\]/i.test(label);
+      
+      // Also check local library directly to catch recently added items or untagged matches
+      const lib = loadLibrary();
+      const cleanLabel = label.replace(/^\[lib\]\s+/i, '');
+      const m = cleanLabel.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(g|kg|ml|l|oz|lb|cup|cups|tsp|tbsp|piece|pieces|slice|slices|pcs?)\b/i);
+      const itemName = m ? m[1].trim() : cleanLabel;
+      const serving = m ? `${m[2]}${m[3].toLowerCase()}` : '';
+      const inLibrary = lib.some((e) => e.item.toLowerCase() === itemName.toLowerCase() && e.serving === serving);
+
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'fl-row-add-btn';
-      if (isLibraryRow) {
+      if (isLibraryTagged || inLibrary) {
         btn.textContent = 'In FoodLibrary';
         btn.title = 'This item is already from FoodLibrary';
         btn.disabled = true;
@@ -934,19 +944,29 @@ els.input.addEventListener('keydown', (e) => {
 
 function addRowToLibrary(row, btn) {
   // Parse "name 150g" → item + qty/unit best-effort.
-  const label = String(row.item ?? '').trim();
-  const m = label.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(g|kg|ml|l|oz|lb|cup|cups|tsp|tbsp|piece|pieces|slice|slices)\b/i);
+  const label = String(row.item ?? '').trim().replace(/^\[lib\]\s+/i, '');
+  const m = label.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(g|kg|ml|l|oz|lb|cup|cups|tsp|tbsp|piece|pieces|slice|slices|pcs?)\b/i);
   const itemName = m ? m[1].trim() : label;
-  const qty = m ? Number(m[2]) : '';
-  const unit = m ? m[3].toLowerCase() : '';
+  const serving = m ? `${m[2]}${m[3].toLowerCase()}` : '';
+
+  const lib = loadLibrary();
+  const exists = lib.some((e) => e.item.toLowerCase() === itemName.toLowerCase() && e.serving === serving);
+
+  if (exists) {
+    if (btn) {
+      btn.textContent = 'In FoodLibrary';
+      btn.disabled = true;
+    }
+    return;
+  }
 
   const entry = {
     id: uid(),
     item: itemName,
     brand: '',
-    serving: m ? `${m[2]}${m[3].toLowerCase()}` : '',
-    qty: qty,
-    unit: unit,
+    serving: serving,
+    qty: m ? Number(m[2]) : '',
+    unit: m ? m[3].toLowerCase() : '',
     kcal: num(row.kcal),
     p: num(row.p),
     f: num(row.f),
@@ -955,15 +975,13 @@ function addRowToLibrary(row, btn) {
     fb: num(row.fb),
     addedAt: new Date().toISOString(),
   };
-  const lib = loadLibrary();
+
   lib.unshift(entry);
   saveLibrary(lib);
 
   if (btn) {
-    const orig = btn.textContent;
     btn.textContent = '✓ Saved';
     btn.disabled = true;
-    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
   }
 }
 
