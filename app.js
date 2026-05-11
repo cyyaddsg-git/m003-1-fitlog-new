@@ -65,16 +65,68 @@ const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
 const DAILY_DATE_WINDOW_DAYS = 30;
 const GYM_ACTIVITIES = [
-  { group: 'Weight Training', kind: 'weight', name: 'Bench Press' },
-  { group: 'Weight Training', kind: 'weight', name: 'Squat' },
-  { group: 'Weight Training', kind: 'weight', name: 'Deadlift' },
-  { group: 'Weight Training', kind: 'weight', name: 'Leg Press' },
-  { group: 'Weight Training', kind: 'weight', name: 'Lat Pulldown' },
-  { group: 'Weight Training', kind: 'weight', name: 'Seated Row' },
-  { group: 'Weight Training', kind: 'weight', name: 'Shoulder Press' },
-  { group: 'Weight Training', kind: 'weight', name: 'Bicep Curl' },
-  { group: 'Weight Training', kind: 'weight', name: 'Tricep Pushdown' },
-  { group: 'Weight Training', kind: 'weight', name: 'Lateral Raise' },
+  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - barbell/dumbbell (decline)' },
+  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - barbell/dumbbell (flat)' },
+  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - barbell/dumbbell (incline)' },
+  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - machine' },
+  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - Smith machine' },
+  { group: 'Push Upper', kind: 'weight', name: 'Chest Fly - barbell/dumbbell' },
+  { group: 'Push Upper', kind: 'weight', name: 'Chest Fly - cable' },
+  { group: 'Push Upper', kind: 'weight', name: 'Chest Fly - machine (pec deck)' },
+  { group: 'Push Upper', kind: 'weight', name: 'Dip - bodyweight' },
+  { group: 'Push Upper', kind: 'weight', name: 'Dip - machine (assisted)' },
+  { group: 'Push Upper', kind: 'weight', name: 'Front Raise - barbell/dumbbell' },
+  { group: 'Push Upper', kind: 'weight', name: 'Front Raise - cable' },
+  { group: 'Push Upper', kind: 'weight', name: 'Lateral Raise - barbell/dumbbell' },
+  { group: 'Push Upper', kind: 'weight', name: 'Lateral Raise - cable' },
+  { group: 'Push Upper', kind: 'weight', name: 'Lateral Raise - machine' },
+  { group: 'Push Upper', kind: 'weight', name: 'Push-Up - bodyweight' },
+  { group: 'Push Upper', kind: 'weight', name: 'Shoulder Press - barbell/dumbbell' },
+  { group: 'Push Upper', kind: 'weight', name: 'Shoulder Press - machine' },
+  { group: 'Push Upper', kind: 'weight', name: 'Shoulder Press - Smith machine' },
+  { group: 'Push Upper', kind: 'weight', name: 'Skull Crusher - barbell/dumbbell' },
+  { group: 'Push Upper', kind: 'weight', name: 'Tricep Extension - barbell/dumbbell (overhead)' },
+  { group: 'Push Upper', kind: 'weight', name: 'Tricep Extension - cable (overhead)' },
+  { group: 'Push Upper', kind: 'weight', name: 'Tricep Extension - machine' },
+  { group: 'Push Upper', kind: 'weight', name: 'Tricep Pushdown - cable' },
+  { group: 'Push Lower', kind: 'weight', name: 'Calf Raise - barbell/dumbbell' },
+  { group: 'Push Lower', kind: 'weight', name: 'Calf Raise - machine (seated)' },
+  { group: 'Push Lower', kind: 'weight', name: 'Calf Raise - machine (standing)' },
+  { group: 'Push Lower', kind: 'weight', name: 'Hip Thrust - barbell/dumbbell' },
+  { group: 'Push Lower', kind: 'weight', name: 'Hip Thrust - machine' },
+  { group: 'Push Lower', kind: 'weight', name: 'Leg Extension - machine' },
+  { group: 'Push Lower', kind: 'weight', name: 'Leg Press - machine' },
+  { group: 'Push Lower', kind: 'weight', name: 'Lunge - barbell/dumbbell' },
+  { group: 'Push Lower', kind: 'weight', name: 'Squat - barbell/dumbbell (back)' },
+  { group: 'Push Lower', kind: 'weight', name: 'Squat - barbell/dumbbell (front)' },
+  { group: 'Push Lower', kind: 'weight', name: 'Squat - barbell/dumbbell (goblet)' },
+  { group: 'Push Lower', kind: 'weight', name: 'Squat - machine (hack)' },
+  { group: 'Push Lower', kind: 'weight', name: 'Squat - Smith machine' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Bicep Curl - barbell/dumbbell' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Bicep Curl - cable' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Bicep Curl - machine' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Face Pull - cable' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Lat Pulldown - cable' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Lat Pulldown - machine' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Pull-Up - bodyweight' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Pull-Up - machine (assisted)' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Pullover - barbell/dumbbell' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Pullover - cable' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Reverse Fly - barbell/dumbbell' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Reverse Fly - cable' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Reverse Fly - machine (rear delt)' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Row - barbell/dumbbell' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Row - cable (seated)' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Row - machine' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Row - T-bar' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Shrug - barbell/dumbbell' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Deadlift - barbell/dumbbell (conventional)' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Deadlift - barbell/dumbbell (Romanian)' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Deadlift - Smith machine' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Deadlift - trap bar' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Good Morning - barbell/dumbbell' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Leg Curl - machine (lying)' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Leg Curl - machine (seated)' },
   { group: 'Cardio', kind: 'cardio', name: 'Treadmill' },
   { group: 'Cardio', kind: 'cardio', name: 'Cycling' },
   { group: 'Cardio', kind: 'cardio', name: 'Rowing Machine' },
@@ -934,21 +986,65 @@ els.input.addEventListener('keydown', (e) => {
 
 // ============ Add to FoodLibrary (per item) ============
 
+// Measurable units (gram/volume/imperial) — these provide an exact weight.
+const FL_WEIGHT_UNIT_RE = /(\d+(?:\.\d+)?)\s*(g|kg|ml|l|oz|lb)\b/i;
+// Discrete serving qualifiers — presence triggers the "1 serving (...)" format.
+const FL_SERVING_UNIT_RE = /(\d+(?:\.\d+)?)\s*(cup|cups|tsp|tbsp|piece|pieces|slice|slices|pcs?|scoop|scoops|serving|servings|can|cans|bottle|bottles|stick|sticks)\b/i;
+
+function parseFoodItemLabel(label) {
+  const clean = String(label ?? '').trim().replace(/^\[lib\]\s+/i, '');
+  const weightMatch = clean.match(FL_WEIGHT_UNIT_RE);
+  const servingMatch = clean.match(FL_SERVING_UNIT_RE);
+
+  // Serving string — always populated per spec.
+  let serving;
+  if (servingMatch) {
+    serving = weightMatch
+      ? `1 serving (${weightMatch[1]}${weightMatch[2].toLowerCase()})`
+      : '1 serving';
+  } else if (weightMatch) {
+    serving = `${weightMatch[1]}${weightMatch[2].toLowerCase()}`;
+  } else {
+    serving = '1 serving';
+  }
+
+  // Item name — strip matched serving/weight tokens + connector noise.
+  let itemName = clean;
+  if (servingMatch) itemName = itemName.replace(servingMatch[0], ' ');
+  if (weightMatch) itemName = itemName.replace(weightMatch[0], ' ');
+  itemName = itemName
+    .replace(/[\(\),]/g, ' ')
+    .replace(/\bof\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!itemName) itemName = clean;
+
+  return { itemName, serving, weightMatch };
+}
+
 function addRowToLibrary(row, btn) {
-  // Parse "name 150g" → item + qty/unit best-effort.
-  const label = String(row.item ?? '').trim();
-  const m = label.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(g|kg|ml|l|oz|lb|cup|cups|tsp|tbsp|piece|pieces|slice|slices)\b/i);
-  const itemName = m ? m[1].trim() : label;
-  const qty = m ? Number(m[2]) : '';
-  const unit = m ? m[3].toLowerCase() : '';
+  const { itemName, serving, weightMatch } = parseFoodItemLabel(row.item);
+
+  const lib = loadLibrary();
+  const exists = lib.some((e) =>
+    String(e.item || '').toLowerCase() === itemName.toLowerCase() &&
+    String(e.serving || '') === serving
+  );
+  if (exists) {
+    if (btn) {
+      btn.textContent = 'In FoodLibrary';
+      btn.disabled = true;
+    }
+    return;
+  }
 
   const entry = {
     id: uid(),
     item: itemName,
     brand: '',
-    serving: m ? `${m[2]}${m[3].toLowerCase()}` : '',
-    qty: qty,
-    unit: unit,
+    serving,
+    qty: weightMatch ? Number(weightMatch[1]) : '',
+    unit: weightMatch ? weightMatch[2].toLowerCase() : '',
     kcal: num(row.kcal),
     p: num(row.p),
     f: num(row.f),
@@ -957,15 +1053,12 @@ function addRowToLibrary(row, btn) {
     fb: num(row.fb),
     addedAt: new Date().toISOString(),
   };
-  const lib = loadLibrary();
   lib.unshift(entry);
   saveLibrary(lib);
 
   if (btn) {
-    const orig = btn.textContent;
     btn.textContent = '✓ Saved';
     btn.disabled = true;
-    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
   }
 }
 
