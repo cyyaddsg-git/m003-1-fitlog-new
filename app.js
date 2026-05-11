@@ -151,8 +151,10 @@ Rules:
 - c is total carb (sugar is a subset, fiber is included; net carb = c - fb).
 - The last row MUST be {"item":"Total", ...} with column-wise sums.
 - For skips like "skip eat 80%", reflect actual eaten portion in numbers AND label (e.g. "anchovies, ate 20%").
-- Item labels in English. Every non-Total item label MUST include the exact serving amount used for that row's nutrition values.
-- Prefer measurable serving units such as g or ml whenever the food or drink can be measured that way (e.g. "rice 150g", "black tea 250ml"). The serving amount in the label must be the same serving basis used for kcal/p/f/c/su/fb.
+- Item labels in English.
+- EVERY non-Total item label MUST include a measurable weight in grams or millilitres (g/ml/kg/l/oz/lb). This is non-negotiable — even for items the user described without a weight, estimate one and include it in the label. The weight is the basis used for kcal/p/f/c/su/fb.
+- For PROCESSED / PACKAGED items where a package is the natural serving unit (canned drinks, bottled drinks, protein bars, scoops of powder, packets, sachets, sticks, containers, tins), include BOTH the package count and the weight equivalent in parentheses (e.g. "Heineken (1 can, 320ml)", "Protein bar (1 bar, 60g)", "Whey (1 scoop, 30g)"). The numeric weight inside parentheses must match the row's nutrition basis.
+- For unprocessed / generic items (rice, chicken, vegetables, tea, water, etc.), use just the gram or millilitre weight (e.g. "rice 150g", "chicken breast 120g", "black tea 250ml"). Do NOT add cup/tbsp/slice qualifiers — they are descriptive only; the weight is the canonical serving.
 - No additional columns. No markdown. JSON only.
 
 Library priority:
@@ -160,7 +162,7 @@ Library priority:
 - For each user-described item, first check LIBRARY_CONTEXT for a match (by item name + brand). If found, copy that entry's per-portion values (scaling to user-stated portion if needed) and prefix the item label with "[lib] ".
 - Otherwise estimate from your knowledge using brand information the user provided. If brand is ambiguous, portion is unspecified, or the item is unrecognizable, add a "notes" line asking the user to clarify. Output ONLY the items described by the user.`;
 
-const SYSTEM_PROMPT_VERSION = '2026-05-08-v2';
+const SYSTEM_PROMPT_VERSION = '2026-05-11-v3';
 const DEFAULT_LIBRARY_VERSION = '2026-05-07-reference';
 const DEFAULT_LIBRARY_CSV = `Category,Item,Size,kcal,Protein (g),Fat (g),Carb (g),Sugar (g),Fiber (g)
 Beverage,GutC Better Soda (Mixed Berries),1 can (250ml),15,0,0,3.8,1.3,6
@@ -986,31 +988,43 @@ els.input.addEventListener('keydown', (e) => {
 
 // ============ Add to FoodLibrary (per item) ============
 
-// Measurable units (gram/volume/imperial) — these provide an exact weight.
+// Measurable weight units (g/ml/oz/lb/kg/l) — AI always includes one of these per system prompt.
 const FL_WEIGHT_UNIT_RE = /(\d+(?:\.\d+)?)\s*(g|kg|ml|l|oz|lb)\b/i;
-// Discrete serving qualifiers — presence triggers the "1 serving (...)" format.
-const FL_SERVING_UNIT_RE = /(\d+(?:\.\d+)?)\s*(cup|cups|tsp|tbsp|piece|pieces|slice|slices|pcs?|scoop|scoops|serving|servings|can|cans|bottle|bottles|stick|sticks)\b/i;
+// Packaging qualifiers — appear on processed/branded items where the package IS the serving unit.
+// Their presence makes us prefix the serving as "<qty> <pkg> (<weight>)".
+const FL_PACKAGING_UNIT_RE = /(\d+(?:\.\d+)?)\s*(can|cans|bottle|bottles|bar|bars|scoop|scoops|packet|packets|sachet|sachets|stick|sticks|container|containers|pack|packs|box|boxes|tin|tins|serving|servings)\b/i;
+// Measurement qualifiers — generic portion descriptors (cup/tbsp/slice/piece). We DROP these
+// and keep only the gram/ml weight, since they're not the canonical serving unit.
+const FL_MEASUREMENT_UNIT_RE = /(\d+(?:\.\d+)?)\s*(cup|cups|tsp|tbsp|slice|slices|piece|pieces|pcs?)\b/i;
 
 function parseFoodItemLabel(label) {
   const clean = String(label ?? '').trim().replace(/^\[lib\]\s+/i, '');
   const weightMatch = clean.match(FL_WEIGHT_UNIT_RE);
-  const servingMatch = clean.match(FL_SERVING_UNIT_RE);
+  const pkgMatch = clean.match(FL_PACKAGING_UNIT_RE);
+  const measMatch = clean.match(FL_MEASUREMENT_UNIT_RE);
 
-  // Serving string — always populated per spec.
   let serving;
-  if (servingMatch) {
+  if (pkgMatch) {
+    // Processed/packaged item: "<qty> <pkg> (<weight>)" or just "<qty> <pkg>" if AI omitted weight.
+    const qty = pkgMatch[1];
+    const qualifier = pkgMatch[2].toLowerCase();
     serving = weightMatch
-      ? `1 serving (${weightMatch[1]}${weightMatch[2].toLowerCase()})`
-      : '1 serving';
+      ? `${qty} ${qualifier} (${weightMatch[1]}${weightMatch[2].toLowerCase()})`
+      : `${qty} ${qualifier}`;
   } else if (weightMatch) {
+    // Generic item with measurable weight — drop any measurement qualifier (cup/tbsp/slice).
     serving = `${weightMatch[1]}${weightMatch[2].toLowerCase()}`;
+  } else if (measMatch) {
+    // Measurement qualifier only (no weight) — shouldn't happen per AI contract; record as-is.
+    serving = `${measMatch[1]} ${measMatch[2].toLowerCase()}`;
   } else {
-    serving = '1 serving';
+    serving = '';
   }
 
-  // Item name — strip matched serving/weight tokens + connector noise.
+  // Item name — strip every matched token + connector noise.
   let itemName = clean;
-  if (servingMatch) itemName = itemName.replace(servingMatch[0], ' ');
+  if (pkgMatch) itemName = itemName.replace(pkgMatch[0], ' ');
+  if (measMatch) itemName = itemName.replace(measMatch[0], ' ');
   if (weightMatch) itemName = itemName.replace(weightMatch[0], ' ');
   itemName = itemName
     .replace(/[\(\),]/g, ' ')
