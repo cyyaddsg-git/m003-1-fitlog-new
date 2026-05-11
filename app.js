@@ -536,6 +536,10 @@ let lastPreview = null; // { rows: [...], notes: [...] }
 let selectedDailyDate = todayISO();
 let selectedGymDate = todayISO();
 let gymDraftRows = [{ kg: '', rep: '' }];
+let activeGymFilter = 'all'; // 'all' | 'Push' | 'Pull' | 'Upper' | 'Lower' | 'Cardio' | 'Custom'
+let gymDraftCustomName = ''; // typed activity name when Custom is selected
+let gymEditingIdx = null; // index in day.activities being edited (selectedGymDate)
+let gymEditDraft = null; // { rows: [...] } working copy while editing
 
 // ============ DOM refs ============
 
@@ -573,8 +577,6 @@ const els = {
   libraryTable: $('#fl-library-table'),
   libraryEmpty: $('#fl-library-empty'),
   gymActivity: $('#fl-gym-activity'),
-  gymCustomWrap: $('#fl-gym-custom-wrap'),
-  gymCustom: $('#fl-gym-custom'),
   gymSets: $('#fl-gym-sets'),
   gymAddSet: $('#fl-gym-add-set'),
   gymLogBtn: $('#fl-gym-log-btn'),
@@ -582,8 +584,8 @@ const els = {
   gymDate: $('#fl-gym-date'),
   gymTable: $('#fl-gym-table'),
   gymClearDay: $('#fl-gym-clear-day'),
-  gymHistory: $('#fl-gym-history'),
-  gymHistoryEmpty: $('#fl-gym-history-empty'),
+  gymLogDay: $('#fl-gym-log-day'),
+  gymFilters: $('#fl-gym-filters'),
   profileOut: $('#fl-profile-out'),
   profileIn: $('#fl-profile-in'),
   profileImg: $('#fl-profile-img'),
@@ -1245,11 +1247,34 @@ function selectedGymActivity() {
   if (kind === 'custom-weight' || kind === 'custom-cardio') {
     return {
       kind: kind === 'custom-cardio' ? 'cardio' : 'weight',
-      name: els.gymCustom.value.trim(),
+      name: gymDraftCustomName.trim(),
       custom: true,
     };
   }
   return { kind, name, custom: false };
+}
+
+function activityMatchesFilter(a) {
+  if (activeGymFilter === 'all') return true;
+  if (activeGymFilter === 'Custom') return false;
+  if (activeGymFilter === 'Cardio') return a.group === 'Cardio';
+  // Push / Pull / Upper / Lower: exact-token match against group ("Push Upper" etc.)
+  return a.group.split(' ').includes(activeGymFilter);
+}
+
+function movementInfo(activity) {
+  // Custom records store ul/pp directly.
+  if (activity.ul || activity.pp) {
+    const ul = activity.ul && activity.ul !== 'N/A' ? activity.ul : '—';
+    const pp = activity.pp && activity.pp !== 'N/A' ? activity.pp : '—';
+    return { ul, pp };
+  }
+  // Preset records: derive from GYM_ACTIVITIES via name lookup (handles legacy rows).
+  const preset = GYM_ACTIVITIES.find((a) => a.name === activity.name);
+  if (!preset) return { ul: '—', pp: '—' };
+  if (preset.group === 'Cardio') return { ul: 'Cardio', pp: '—' };
+  const [pp, ul] = preset.group.split(' ');
+  return { ul: ul || '—', pp: pp || '—' };
 }
 
 function blankGymRow(kind) {
@@ -1269,20 +1294,25 @@ function gymDay(all, date) {
   return day && Array.isArray(day.activities) ? day : { activities: [] };
 }
 
-function renderGymActivityOptions() {
-  els.gymActivity.innerHTML = '';
-  const groups = [...new Set(GYM_ACTIVITIES.map((a) => a.group))];
-  groups.forEach((group) => {
-    const og = document.createElement('optgroup');
-    og.label = group;
-    GYM_ACTIVITIES.filter((a) => a.group === group).forEach((a) => {
-      const opt = document.createElement('option');
-      opt.value = `${a.kind}:${a.name}`;
-      opt.textContent = a.name;
-      og.appendChild(opt);
-    });
-    els.gymActivity.appendChild(og);
+const WEIGHT_GROUP_ORDER = ['Push Upper', 'Push Lower', 'Pull Upper', 'Pull Lower'];
+
+function appendActivityOptgroup(label, matches) {
+  if (!matches.length) return;
+  const og = document.createElement('optgroup');
+  og.label = label;
+  matches.forEach((a) => {
+    const opt = document.createElement('option');
+    opt.value = `${a.kind}:${a.name}`;
+    opt.textContent = a.name;
+    og.appendChild(opt);
   });
+  els.gymActivity.appendChild(og);
+}
+
+function renderGymActivityOptions() {
+  els.gymActivity.innerHTML = '<option value="" disabled selected>— Select activity —</option>';
+
+  // 1) Custom always first
   const custom = document.createElement('optgroup');
   custom.label = 'Custom';
   [
@@ -1295,6 +1325,26 @@ function renderGymActivityOptions() {
     custom.appendChild(opt);
   });
   els.gymActivity.appendChild(custom);
+
+  // 2) Weight groups in natural order (Push first, then Pull; Upper before Lower within each)
+  WEIGHT_GROUP_ORDER.forEach((group) => {
+    const matches = GYM_ACTIVITIES.filter((a) => a.group === group && activityMatchesFilter(a));
+    appendActivityOptgroup(group, matches);
+  });
+
+  // 3) Cardio last
+  const cardioMatches = GYM_ACTIVITIES.filter((a) => a.group === 'Cardio' && activityMatchesFilter(a));
+  appendActivityOptgroup('Cardio', cardioMatches);
+}
+
+function onGymFilterClick(ev) {
+  const btn = ev.target.closest('.fl-filter-pill');
+  if (!btn) return;
+  activeGymFilter = btn.dataset.filter;
+  els.gymFilters.querySelectorAll('.fl-filter-pill').forEach((b) => {
+    b.classList.toggle('fl-active', b === btn);
+  });
+  renderGymActivityOptions();
 }
 
 function showGymValidation(msg) {
@@ -1318,44 +1368,91 @@ function renderGymDateOptions() {
 
 function renderGymDraft() {
   const activity = selectedGymActivity();
-  const isCustom = activity.custom;
-  els.gymCustomWrap.hidden = !isCustom;
   els.gymAddSet.textContent = activity.kind === 'cardio' ? 'Add interval' : 'Add set';
 
   gymDraftRows = normalizeGymRows(gymDraftRows, activity.kind);
   if (!gymDraftRows.length) gymDraftRows = [blankGymRow(activity.kind)];
 
   els.gymSets.innerHTML = '';
-  gymDraftRows.forEach((row, idx) => {
-    const wrap = document.createElement('div');
-    wrap.className = 'fl-gym-set-row';
-    wrap.classList.add(activity.kind === 'cardio' ? 'fl-gym-cardio-row' : 'fl-gym-weight-row');
+  const table = document.createElement('table');
+  table.className = 'fl-table fl-gym-draft-table';
 
-    const badge = document.createElement('span');
-    badge.className = 'fl-gym-set-index';
-    badge.textContent = String(idx + 1);
-    wrap.appendChild(badge);
+  // Header — Activity first, then SET per row.
+  // Weight tables emit an empty 4th metric col so they align with cardio's 4 metric cols.
+  const thead = document.createElement('thead');
+  const trh = document.createElement('tr');
+  const headers = activity.kind === 'cardio'
+    ? ['Activity', 'SET', 'Speed', 'Incline', 'Time']
+    : ['Activity', 'SET', 'kg', 'rep', ''];
+  headers.forEach((h, i) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    if (i > 0) th.classList.add('fl-gym-mcol');
+    trh.appendChild(th);
+  });
+  // delete column
+  const thDel = document.createElement('th');
+  thDel.className = 'fl-gym-actions-col';
+  trh.appendChild(thDel);
+  thead.appendChild(trh);
+  table.appendChild(thead);
+
+  // Body
+  const tbody = document.createElement('tbody');
+  gymDraftRows.forEach((row, idx) => {
+    const tr = document.createElement('tr');
+
+    if (idx === 0) {
+      const tdAct = document.createElement('td');
+      tdAct.rowSpan = gymDraftRows.length;
+      tdAct.className = 'fl-gym-draft-activity';
+      if (activity.custom) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Activity name';
+        input.value = gymDraftCustomName;
+        input.addEventListener('input', () => { gymDraftCustomName = input.value; });
+        tdAct.appendChild(input);
+      } else {
+        tdAct.textContent = activity.name || '—';
+      }
+      tr.appendChild(tdAct);
+    }
+
+    const tdSeq = document.createElement('td');
+    tdSeq.className = 'fl-gym-mcol';
+    tdSeq.textContent = String(idx + 1);
+    tr.appendChild(tdSeq);
 
     const fields = activity.kind === 'cardio'
-      ? [['speed', 'Speed'], ['incline', 'Incline'], ['time', 'Time min']]
-      : [['kg', 'kg'], ['rep', 'rep']];
+      ? [['speed', '0.1'], ['incline', '0.1'], ['time', '1']]
+      : [['kg', '0.1'], ['rep', '1']];
 
-    fields.forEach(([key, label]) => {
-      const field = document.createElement('label');
-      field.textContent = label;
+    fields.forEach(([key, step]) => {
+      const td = document.createElement('td');
+      td.className = 'fl-gym-mcol';
       const input = document.createElement('input');
       input.type = 'number';
       input.inputMode = 'decimal';
       input.min = '0';
-      input.step = key === 'rep' || key === 'time' ? '1' : '0.1';
+      input.step = step;
       input.value = row[key] || '';
       input.addEventListener('input', () => {
         gymDraftRows[idx] = { ...gymDraftRows[idx], [key]: input.value };
       });
-      field.appendChild(input);
-      wrap.appendChild(field);
+      td.appendChild(input);
+      tr.appendChild(td);
     });
 
+    // Weight rows: emit empty 4th metric cell so columns align with cardio's 4 cols
+    if (activity.kind !== 'cardio') {
+      const tdPad = document.createElement('td');
+      tdPad.className = 'fl-gym-mcol';
+      tr.appendChild(tdPad);
+    }
+
+    const tdDel = document.createElement('td');
+    tdDel.className = 'fl-gym-actions-col';
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'fl-row-del-btn';
@@ -1367,9 +1464,13 @@ function renderGymDraft() {
       gymDraftRows.splice(idx, 1);
       renderGymDraft();
     });
-    wrap.appendChild(del);
-    els.gymSets.appendChild(wrap);
+    tdDel.appendChild(del);
+    tr.appendChild(tdDel);
+
+    tbody.appendChild(tr);
   });
+  table.appendChild(tbody);
+  els.gymSets.appendChild(table);
 }
 
 function addGymDraftRow() {
@@ -1413,7 +1514,7 @@ function logGymActivity() {
   all[date] = day;
   saveGym(all);
   gymDraftRows = [blankGymRow(activity.kind)];
-  if (activity.custom) els.gymCustom.value = '';
+  if (activity.custom) gymDraftCustomName = '';
   renderGym();
 }
 
@@ -1434,65 +1535,167 @@ function gymMetricText(activity) {
   }).join('; ');
 }
 
-function renderGymTable(tbl, activities, opts = {}) {
-  tbl.innerHTML = '';
-  const hasAction = Boolean(opts.onDelete);
+const GYM_METRIC_FIELDS = {
+  weight: [['kg', '0.1'], ['rep', '1']],
+  cardio: [['speed', '0.1'], ['incline', '0.1'], ['time', '1']],
+};
+
+function buildGymSubTable(kind, items, opts) {
+  const table = document.createElement('table');
+  table.className = 'fl-table fl-gym-table';
+
+  // Weight headers carry an empty 4th metric col so the SET/Speed/Incline/Time positions
+  // line up with cardio's four metric columns across tables.
+  const headers = kind === 'cardio'
+    ? ['#', 'Activity', 'SET', 'Speed', 'Incline', 'Time']
+    : ['#', 'Activity', 'SET', 'kg', 'rep', ''];
+
   const thead = document.createElement('thead');
   const trh = document.createElement('tr');
-  ['#', 'Activity', 'Metrics'].forEach((h) => {
+  headers.forEach((h, i) => {
     const th = document.createElement('th');
     th.textContent = h;
     if (h === '#') th.classList.add('fl-num');
+    else if (i >= 2) th.classList.add('fl-gym-mcol');
     trh.appendChild(th);
   });
-  if (hasAction) trh.appendChild(document.createElement('th'));
+  if (opts.onEdit || opts.onDelete) {
+    const thAct = document.createElement('th');
+    thAct.className = 'fl-gym-actions-col';
+    trh.appendChild(thAct);
+  }
   thead.appendChild(trh);
-  tbl.appendChild(thead);
+  table.appendChild(thead);
+
+  const fields = GYM_METRIC_FIELDS[kind === 'cardio' ? 'cardio' : 'weight'];
 
   const tbody = document.createElement('tbody');
-  if (!activities.length) {
-    const tr = document.createElement('tr');
-    tr.className = 'fl-empty-row';
-    const td = document.createElement('td');
-    td.colSpan = hasAction ? 4 : 3;
-    td.textContent = '(no activities)';
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-  } else {
-    activities.forEach((activity, idx) => {
+  items.forEach(({ a, i: activityIdx }) => {
+    const isEditing = activityIdx === gymEditingIdx;
+    const sourceRows = isEditing && gymEditDraft ? gymEditDraft.rows : (a.rows || []);
+    const rows = sourceRows.length ? sourceRows : [{}];
+
+    rows.forEach((r, setIdx) => {
       const tr = document.createElement('tr');
+
+      if (setIdx === 0) {
+        const tdActIdx = document.createElement('td');
+        tdActIdx.className = 'fl-num';
+        tdActIdx.rowSpan = rows.length;
+        tdActIdx.textContent = String(activityIdx + 1);
+        tr.appendChild(tdActIdx);
+
+        const tdName = document.createElement('td');
+        tdName.rowSpan = rows.length;
+        tdName.className = 'fl-gym-activity-name';
+        tdName.textContent = a.name || '';
+        tr.appendChild(tdName);
+      }
+
       const tdSeq = document.createElement('td');
-      tdSeq.className = 'fl-num';
-      tdSeq.textContent = String(idx + 1);
+      tdSeq.className = 'fl-gym-mcol';
+      tdSeq.textContent = String(setIdx + 1);
       tr.appendChild(tdSeq);
 
-      const tdName = document.createElement('td');
-      tdName.textContent = activity.name || '';
-      tr.appendChild(tdName);
+      fields.forEach(([key, step]) => {
+        const td = document.createElement('td');
+        td.className = 'fl-gym-mcol';
+        if (isEditing) {
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.inputMode = 'decimal';
+          input.min = '0';
+          input.step = step;
+          input.value = r[key] || '';
+          input.addEventListener('input', () => {
+            if (!gymEditDraft.rows[setIdx]) gymEditDraft.rows[setIdx] = {};
+            gymEditDraft.rows[setIdx][key] = input.value;
+          });
+          td.appendChild(input);
+        } else {
+          const val = r[key];
+          td.textContent = (val === undefined || val === null || val === '') ? '—' : String(val);
+        }
+        tr.appendChild(td);
+      });
 
-      const tdMetrics = document.createElement('td');
-      tdMetrics.className = 'fl-gym-metrics';
-      tdMetrics.textContent = gymMetricText(activity);
-      tr.appendChild(tdMetrics);
+      // Weight rows: empty 4th metric cell to align with cardio's 4 cols
+      if (kind !== 'cardio') {
+        const tdPad = document.createElement('td');
+        tdPad.className = 'fl-gym-mcol';
+        tr.appendChild(tdPad);
+      }
 
-      if (hasAction) {
-        const tdDel = document.createElement('td');
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'fl-row-del-btn';
-        del.textContent = '×';
-        del.title = 'Remove activity';
-        del.addEventListener('click', () => opts.onDelete(idx));
-        tdDel.appendChild(del);
-        tr.appendChild(tdDel);
+      if ((opts.onEdit || opts.onDelete) && setIdx === 0) {
+        const tdAct = document.createElement('td');
+        tdAct.rowSpan = rows.length;
+        tdAct.className = 'fl-gym-actions-col';
+        if (opts.onEdit) {
+          const editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = isEditing ? 'fl-row-save-btn' : 'fl-row-edit-btn';
+          editBtn.textContent = isEditing ? 'Save' : 'Edit';
+          editBtn.addEventListener('click', () => opts.onEdit(activityIdx));
+          tdAct.appendChild(editBtn);
+        }
+        if (opts.onDelete) {
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'fl-row-del-btn';
+          del.textContent = '×';
+          del.title = 'Remove activity';
+          del.addEventListener('click', () => opts.onDelete(activityIdx));
+          tdAct.appendChild(del);
+        }
+        tr.appendChild(tdAct);
       }
       tbody.appendChild(tr);
     });
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+function renderGymSection(container, activities, opts = {}) {
+  container.innerHTML = '';
+
+  if (!activities.length) {
+    const empty = document.createElement('p');
+    empty.className = 'fl-empty';
+    empty.textContent = '(no activities)';
+    container.appendChild(empty);
+    return;
   }
-  tbl.appendChild(tbody);
+
+  const indexed = activities.map((a, i) => ({ a, i }));
+  const weight = indexed.filter(({ a }) => a.kind !== 'cardio');
+  const cardio = indexed.filter(({ a }) => a.kind === 'cardio');
+
+  if (weight.length) {
+    const heading = document.createElement('h3');
+    heading.className = 'fl-gym-section-heading';
+    heading.textContent = 'Weight';
+    container.appendChild(heading);
+    const wrap = document.createElement('div');
+    wrap.className = 'fl-table-wrap';
+    wrap.appendChild(buildGymSubTable('weight', weight, opts));
+    container.appendChild(wrap);
+  }
+  if (cardio.length) {
+    const heading = document.createElement('h3');
+    heading.className = 'fl-gym-section-heading';
+    heading.textContent = 'Cardio';
+    container.appendChild(heading);
+    const wrap = document.createElement('div');
+    wrap.className = 'fl-table-wrap';
+    wrap.appendChild(buildGymSubTable('cardio', cardio, opts));
+    container.appendChild(wrap);
+  }
 }
 
 function removeGymActivity(date, index) {
+  gymEditingIdx = null;
+  gymEditDraft = null;
   const all = loadGym();
   const day = gymDay(all, date);
   day.activities.splice(index, 1);
@@ -1502,36 +1705,29 @@ function removeGymActivity(date, index) {
   renderGym();
 }
 
-function renderGymHistory(all) {
-  const dates = Object.keys(all)
-    .filter((date) => Array.isArray(all[date]?.activities) && all[date].activities.length)
-    .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
-
-  els.gymHistory.innerHTML = '';
-  els.gymHistoryEmpty.hidden = dates.length > 0;
-  dates.forEach((date) => {
-    const card = document.createElement('article');
-    card.className = 'fl-gym-history-card';
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'fl-gym-history-date';
-    btn.textContent = date === todayISO() ? `${date} (today)` : date;
-    btn.addEventListener('click', () => {
-      selectedGymDate = date;
-      renderGym();
-      els.gymDate.focus();
-    });
-    card.appendChild(btn);
-
-    const wrap = document.createElement('div');
-    wrap.className = 'fl-table-wrap';
-    const tbl = document.createElement('table');
-    tbl.className = 'fl-table fl-gym-table';
-    renderGymTable(tbl, all[date].activities);
-    wrap.appendChild(tbl);
-    card.appendChild(wrap);
-    els.gymHistory.appendChild(card);
-  });
+function toggleGymEdit(date, index) {
+  if (gymEditingIdx === index) {
+    // Save
+    const all = loadGym();
+    const day = gymDay(all, date);
+    const activity = day.activities[index];
+    if (activity && gymEditDraft) {
+      activity.rows = normalizeGymRows(gymEditDraft.rows, activity.kind);
+      all[date] = day;
+      saveGym(all);
+    }
+    gymEditingIdx = null;
+    gymEditDraft = null;
+  } else {
+    // Start (or switch) edit
+    const all = loadGym();
+    const day = gymDay(all, date);
+    const activity = day.activities[index];
+    if (!activity) return;
+    gymEditingIdx = index;
+    gymEditDraft = { rows: JSON.parse(JSON.stringify(activity.rows || [])) };
+  }
+  renderGym();
 }
 
 function renderGym() {
@@ -1539,15 +1735,17 @@ function renderGym() {
   renderGymDraft();
   const all = loadGym();
   const day = gymDay(all, selectedGymDate);
-  renderGymTable(els.gymTable, day.activities, {
+  renderGymSection(els.gymTable, day.activities, {
     onDelete: (idx) => removeGymActivity(selectedGymDate, idx),
+    onEdit: (idx) => toggleGymEdit(selectedGymDate, idx),
   });
-  renderGymHistory(all);
 }
 
 function clearGymDay() {
   const date = selectedGymDate || todayISO();
   if (!confirm(`Clear GymLog for ${date}? Activities already logged will be removed.`)) return;
+  gymEditingIdx = null;
+  gymEditDraft = null;
   const all = loadGym();
   delete all[date];
   saveGym(all);
@@ -1555,7 +1753,11 @@ function clearGymDay() {
 }
 
 renderGymActivityOptions();
+els.gymFilters.addEventListener('click', onGymFilterClick);
 els.gymActivity.addEventListener('change', () => {
+  gymDraftCustomName = '';
+  gymEditingIdx = null;
+  gymEditDraft = null;
   const activity = selectedGymActivity();
   gymDraftRows = [blankGymRow(activity.kind)];
   showGymValidation(null);
@@ -1565,9 +1767,16 @@ els.gymAddSet.addEventListener('click', addGymDraftRow);
 els.gymLogBtn.addEventListener('click', logGymActivity);
 els.gymDate.addEventListener('change', () => {
   selectedGymDate = els.gymDate.value || todayISO();
+  gymEditingIdx = null;
+  gymEditDraft = null;
   renderGym();
 });
 els.gymClearDay.addEventListener('click', clearGymDay);
+els.gymLogDay.addEventListener('click', () => {
+  // Stub for GymLog Log Day — snapshot/history surface comes in a later phase.
+  showGymValidation('Day logged. History view coming in a later phase.');
+  setTimeout(() => showGymValidation(null), 2500);
+});
 
 // ============ FoodLibrary tab ============
 

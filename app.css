@@ -475,6 +475,154 @@ main, .fl-app-header, .fl-tabs {
   white-space: normal;
   min-width: 260px;
 }
+
+/* GymLog tables — rowspan'd # + Activity cells top-align */
+.fl-gym-table td {
+  vertical-align: top;
+}
+.fl-gym-table td.fl-gym-activity-name {
+  font-weight: 600;
+}
+.fl-gym-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fl-gym-section-heading {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fl-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Column widths — # narrow, SET/kg/rep/Speed/Incline/Time uniform */
+.fl-num {
+  width: 2.5em;
+  min-width: 2.5em;
+  text-align: center;
+}
+.fl-gym-mcol {
+  width: 4.5em;
+  min-width: 4.5em;
+  text-align: center;
+}
+.fl-gym-mcol input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+/* Action column (Edit + Delete buttons) — fixed width so the metric columns
+   line up identically across the LogActivity preview and the GYMLOG sub-tables. */
+.fl-gym-actions-col {
+  width: 6em;
+  min-width: 6em;
+  white-space: nowrap;
+  text-align: right;
+}
+.fl-row-edit-btn,
+.fl-row-save-btn {
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 8px;
+  margin-right: 4px;
+  border-radius: var(--fl-radius);
+  border: 1px solid var(--fl-border);
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+  cursor: pointer;
+}
+.fl-row-edit-btn:hover {
+  background: var(--fl-bg-subtle);
+}
+.fl-row-save-btn {
+  background: var(--fl-accent);
+  color: var(--fl-accent-fg);
+  border-color: var(--fl-accent);
+  font-weight: 600;
+}
+
+/* Gym filter pills */
+.fl-gym-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.fl-filter-pill {
+  background: var(--fl-bg);
+  border: 1px solid var(--fl-border);
+  color: var(--fl-muted);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.fl-filter-pill:hover {
+  background: var(--fl-bg-subtle);
+  color: var(--fl-fg);
+}
+.fl-filter-pill.fl-active {
+  background: var(--fl-accent);
+  color: var(--fl-accent-fg);
+  border-color: var(--fl-accent);
+  font-weight: 600;
+}
+
+/* Custom-activity tag selects */
+.fl-gym-custom-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.fl-gym-custom-meta select {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: var(--fl-radius);
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+}
+
+/* Draft (Log Activity) table */
+.fl-gym-draft-table {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.fl-gym-draft-table td {
+  vertical-align: middle;
+}
+.fl-gym-draft-activity {
+  vertical-align: top;
+  font-weight: 600;
+  min-width: 140px;
+  padding-top: 10px;
+}
+.fl-gym-draft-activity input[type="text"] {
+  width: 100%;
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: var(--fl-radius);
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+}
+.fl-gym-draft-table td input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--fl-border);
+  border-radius: var(--fl-radius);
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+}
 .fl-gym-history-deck {
   display: flex;
   flex-direction: column;
