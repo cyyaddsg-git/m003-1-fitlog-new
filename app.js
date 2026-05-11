@@ -1584,116 +1584,114 @@ function gymMetricText(activity) {
   }).join('; ');
 }
 
+// Each tuple: [data key, numeric step, unit hint shown next to the input].
 const GYM_METRIC_FIELDS = {
-  weight: [['kg', '0.1'], ['rep', '1']],
-  cardio: [['speed', '0.1'], ['incline', '0.1'], ['time', '1']],
+  weight: [['kg', '0.1', 'kg'], ['rep', '1', 'rep']],
+  cardio: [['speed', '0.1', 'km/h'], ['incline', '0.1', '%'], ['time', '1', 'min']],
 };
 
-function buildGymSubTable(kind, items, opts) {
+function buildActivityCard(a, activityIdx, kind, opts) {
   const locked = !!opts.locked;
+  const card = document.createElement('article');
+  card.className = 'fl-gym-activity-card';
+
+  const header = document.createElement('header');
+  header.className = 'fl-gym-activity-card-header';
+  header.textContent = a.name || '—';
+  card.appendChild(header);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'fl-table-wrap';
+
   const table = document.createElement('table');
-  table.className = 'fl-table fl-gym-table';
+  table.className = 'fl-table fl-gym-card-table';
 
-  // Weight headers carry an empty 4th metric col so the SET/Speed/Incline/Time positions
-  // line up with cardio's four metric columns across tables.
-  const headers = kind === 'cardio'
-    ? ['Activity', 'SET', 'Speed', 'Incline', 'Time']
-    : ['Activity', 'SET', 'kg', 'rep', ''];
-
-  const thead = document.createElement('thead');
-  const trh = document.createElement('tr');
-  headers.forEach((h, i) => {
-    const th = document.createElement('th');
-    th.textContent = h;
-    if (i >= 1) th.classList.add('fl-gym-mcol');
-    trh.appendChild(th);
-  });
-  // Action column header — always present so column widths align across tables.
-  const thAct = document.createElement('th');
-  thAct.className = 'fl-gym-actions-col';
-  trh.appendChild(thAct);
-  thead.appendChild(trh);
-  table.appendChild(thead);
+  // No <thead> — unit hints render next to each input. This lets weight and cardio
+  // cards share the same body shape with 4 metric columns + action column.
 
   const fields = GYM_METRIC_FIELDS[kind === 'cardio' ? 'cardio' : 'weight'];
+  const padCount = 4 - fields.length; // weight has 2 metrics, cardio has 3 — pad to 4 cols
 
   const tbody = document.createElement('tbody');
-  items.forEach(({ a, i: activityIdx }) => {
-    const rows = Array.isArray(a.rows) && a.rows.length ? a.rows : [{}];
+  const rows = Array.isArray(a.rows) && a.rows.length ? a.rows : [{}];
 
-    rows.forEach((r, setIdx) => {
-      const tr = document.createElement('tr');
+  rows.forEach((r, setIdx) => {
+    const tr = document.createElement('tr');
 
-      if (setIdx === 0) {
-        const tdName = document.createElement('td');
-        tdName.rowSpan = rows.length;
-        tdName.className = 'fl-gym-activity-name';
-        tdName.textContent = a.name || '';
-        tr.appendChild(tdName);
+    // SET # (narrow)
+    const tdSeq = document.createElement('td');
+    tdSeq.className = 'fl-gym-set-col';
+    tdSeq.textContent = String(setIdx + 1);
+    tr.appendChild(tdSeq);
+
+    // 4 metric columns (equal width)
+    fields.forEach(([key, step, unit]) => {
+      const td = document.createElement('td');
+      td.className = 'fl-gym-mcol';
+      if (locked) {
+        const val = r[key];
+        td.textContent = (val === undefined || val === null || val === '')
+          ? '—'
+          : `${val} ${unit}`;
+      } else {
+        const inputWrap = document.createElement('span');
+        inputWrap.className = 'fl-gym-metric-input-wrap';
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.inputMode = 'decimal';
+        input.min = '0';
+        input.step = step;
+        input.value = r[key] || '';
+        input.addEventListener('input', () => {
+          updateSetValue(activityIdx, setIdx, key, input.value);
+        });
+        const unitEl = document.createElement('span');
+        unitEl.className = 'fl-gym-metric-unit';
+        unitEl.textContent = unit;
+        inputWrap.appendChild(input);
+        inputWrap.appendChild(unitEl);
+        td.appendChild(inputWrap);
       }
-
-      const tdSeq = document.createElement('td');
-      tdSeq.className = 'fl-gym-mcol';
-      tdSeq.textContent = String(setIdx + 1);
-      tr.appendChild(tdSeq);
-
-      fields.forEach(([key, step]) => {
-        const td = document.createElement('td');
-        td.className = 'fl-gym-mcol';
-        if (locked) {
-          const val = r[key];
-          td.textContent = (val === undefined || val === null || val === '') ? '—' : String(val);
-        } else {
-          const input = document.createElement('input');
-          input.type = 'number';
-          input.inputMode = 'decimal';
-          input.min = '0';
-          input.step = step;
-          input.value = r[key] || '';
-          input.addEventListener('input', () => {
-            updateSetValue(activityIdx, setIdx, key, input.value);
-          });
-          td.appendChild(input);
-        }
-        tr.appendChild(td);
-      });
-
-      // Weight rows: empty 4th metric cell to align with cardio's 4 cols
-      if (kind !== 'cardio') {
-        const tdPad = document.createElement('td');
-        tdPad.className = 'fl-gym-mcol';
-        tr.appendChild(tdPad);
-      }
-
-      // Per-row action column: Add set + ×, hidden content when locked
-      const tdAct = document.createElement('td');
-      tdAct.className = 'fl-gym-actions-col';
-      if (!locked) {
-        const addBtn = document.createElement('button');
-        addBtn.type = 'button';
-        addBtn.className = 'fl-row-edit-btn';
-        addBtn.textContent = 'Add set';
-        addBtn.title = kind === 'cardio' ? 'Insert interval below' : 'Insert set below';
-        addBtn.addEventListener('click', () => insertSetBelow(activityIdx, setIdx));
-        tdAct.appendChild(addBtn);
-
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'fl-row-del-btn';
-        del.textContent = '×';
-        del.title = rows.length > 1
-          ? (kind === 'cardio' ? 'Remove interval' : 'Remove set')
-          : 'Remove activity';
-        del.addEventListener('click', () => removeSet(activityIdx, setIdx));
-        tdAct.appendChild(del);
-      }
-      tr.appendChild(tdAct);
-
-      tbody.appendChild(tr);
+      tr.appendChild(td);
     });
+
+    // Empty pad cells so every row has the same 4 metric columns at equal widths.
+    for (let i = 0; i < padCount; i++) {
+      const tdPad = document.createElement('td');
+      tdPad.className = 'fl-gym-mcol';
+      tr.appendChild(tdPad);
+    }
+
+    // Action column: + (green) and ×
+    const tdAct = document.createElement('td');
+    tdAct.className = 'fl-gym-actions-col';
+    if (!locked) {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'fl-row-addset-btn';
+      addBtn.textContent = '+';
+      addBtn.title = kind === 'cardio' ? 'Insert interval below' : 'Insert set below';
+      addBtn.addEventListener('click', () => insertSetBelow(activityIdx, setIdx));
+      tdAct.appendChild(addBtn);
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'fl-row-del-btn';
+      del.textContent = '×';
+      del.title = rows.length > 1
+        ? (kind === 'cardio' ? 'Remove interval' : 'Remove set')
+        : 'Remove activity';
+      del.addEventListener('click', () => removeSet(activityIdx, setIdx));
+      tdAct.appendChild(del);
+    }
+    tr.appendChild(tdAct);
+    tbody.appendChild(tr);
   });
+
   table.appendChild(tbody);
-  return table;
+  wrap.appendChild(table);
+  card.appendChild(wrap);
+  return card;
 }
 
 function buildGymNoteField(initialText, onChange, locked) {
@@ -1739,30 +1737,10 @@ function renderGymSection(container, activities, opts = {}) {
     empty.textContent = '(no activities)';
     container.appendChild(empty);
   } else {
-    const indexed = activities.map((a, i) => ({ a, i }));
-    const weight = indexed.filter(({ a }) => a.kind !== 'cardio');
-    const cardio = indexed.filter(({ a }) => a.kind === 'cardio');
-
-    if (weight.length) {
-      const heading = document.createElement('h3');
-      heading.className = 'fl-gym-section-heading';
-      heading.textContent = 'Weight';
-      container.appendChild(heading);
-      const wrap = document.createElement('div');
-      wrap.className = 'fl-table-wrap';
-      wrap.appendChild(buildGymSubTable('weight', weight, opts));
-      container.appendChild(wrap);
-    }
-    if (cardio.length) {
-      const heading = document.createElement('h3');
-      heading.className = 'fl-gym-section-heading';
-      heading.textContent = 'Cardio';
-      container.appendChild(heading);
-      const wrap = document.createElement('div');
-      wrap.className = 'fl-table-wrap';
-      wrap.appendChild(buildGymSubTable('cardio', cardio, opts));
-      container.appendChild(wrap);
-    }
+    activities.forEach((a, activityIdx) => {
+      const kind = a.kind === 'cardio' ? 'cardio' : 'weight';
+      container.appendChild(buildActivityCard(a, activityIdx, kind, opts));
+    });
   }
 
   // Note of the day — always rendered (even when no activities yet)
