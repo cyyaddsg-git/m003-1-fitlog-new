@@ -520,6 +520,9 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
 .fl-gym-note {
   margin-top: 8px;
 }
+.fl-gym-note .fl-gym-section-heading {
+  margin-bottom: 8px;
+}
 .fl-gym-note-input {
   width: 100%;
   box-sizing: border-box;
@@ -544,10 +547,75 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   text-align: center;
 }
 .fl-gym-mcol {
-  width: 4.5em;
-  min-width: 4.5em;
   text-align: center;
 }
+.fl-gym-set-col {
+  width: 3em;
+  text-align: center;
+}
+
+/* Activity card — one per activity. Header = activity name. Body = sets table. */
+.fl-gym-activity-card {
+  border: 1px solid var(--fl-border);
+  border-radius: var(--fl-radius);
+  background: var(--fl-bg);
+  margin: 6px 0;
+  overflow: hidden;
+}
+.fl-gym-activity-card-header {
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--fl-bg-subtle);
+  border-bottom: 1px solid var(--fl-border);
+}
+.fl-gym-card-table {
+  width: 100%;
+  table-layout: fixed;   /* honor SET + action widths; let 4 metric cols share remainder equally */
+  margin: 0;
+}
+.fl-gym-card-table td {
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+.fl-gym-card-table .fl-gym-actions-col {
+  /* Explicit visible width so Safari + Chrome reliably reserve room for + and ×. */
+  width: 4.5em;
+  white-space: nowrap;
+  text-align: right;
+  padding-right: 8px;
+}
+
+/* Metric input + inline unit hint (replaces the column header). */
+.fl-gym-metric-input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+.fl-gym-metric-input-wrap input[type="number"] {
+  flex: 1;
+  min-width: 0;
+}
+.fl-gym-metric-unit {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--fl-muted);
+}
+
+/* + button — green glyph, transparent background; soft green hover (mirrors × style) */
+.fl-row-addset-btn {
+  background: transparent;
+  border: 0;
+  color: var(--fl-success);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 8px;
+  margin-right: 4px;
+  border-radius: 4px;
+}
+.fl-row-addset-btn:hover { background: #ecfdf5; }
 .fl-gym-mcol input[type="number"] {
   width: 100%;
   box-sizing: border-box;
@@ -564,11 +632,8 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   outline: none;
 }
 
-/* Action column (Edit/Add set + Delete buttons) — fixed width so the metric columns
-   line up identically across the LogActivity preview and the GYMLOG sub-tables. */
+/* Action column default (used by table headers without card override) */
 .fl-gym-actions-col {
-  width: 7em;
-  min-width: 7em;
   white-space: nowrap;
   text-align: right;
 }
