@@ -1610,7 +1610,6 @@ function buildActivityCard(a, activityIdx, kind, opts) {
   // cards share the same body shape with 4 metric columns + action column.
 
   const fields = GYM_METRIC_FIELDS[kind === 'cardio' ? 'cardio' : 'weight'];
-  const padCount = 4 - fields.length; // weight has 2 metrics, cardio has 3 — pad to 4 cols
 
   const tbody = document.createElement('tbody');
   const rows = Array.isArray(a.rows) && a.rows.length ? a.rows : [{}];
@@ -1654,13 +1653,6 @@ function buildActivityCard(a, activityIdx, kind, opts) {
       }
       tr.appendChild(td);
     });
-
-    // Empty pad cells so every row has the same 4 metric columns at equal widths.
-    for (let i = 0; i < padCount; i++) {
-      const tdPad = document.createElement('td');
-      tdPad.className = 'fl-gym-mcol';
-      tr.appendChild(tdPad);
-    }
 
     // Action column: + (green) and ×
     const tdAct = document.createElement('td');
