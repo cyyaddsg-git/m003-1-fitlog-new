@@ -550,7 +550,7 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   text-align: center;
 }
 .fl-gym-set-col {
-  width: 3em;
+  width: 2.5em;
   text-align: center;
 }
 
@@ -571,7 +571,11 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
 }
 .fl-gym-card-table {
   width: 100%;
-  table-layout: fixed;   /* honor SET + action widths; let 4 metric cols share remainder equally */
+  /* Min-width ensures the 4 equal-width metric cells each fit a 5ch input + its
+     unit hint (longest is "km/h"). Below this width the .fl-table-wrap scrolls
+     horizontally instead of letting cell content overflow into the next column. */
+  min-width: 500px;
+  table-layout: fixed;
   margin: 0;
 }
 .fl-gym-card-table td {
@@ -580,7 +584,7 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
 }
 .fl-gym-card-table .fl-gym-actions-col {
   /* Explicit visible width so Safari + Chrome reliably reserve room for + and ×. */
-  width: 4.5em;
+  width: 4em;
   white-space: nowrap;
   text-align: right;
   padding-right: 8px;
