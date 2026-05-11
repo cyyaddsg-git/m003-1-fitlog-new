@@ -21,10 +21,20 @@ html, body {
   background: var(--fl-bg-subtle);
 }
 
-main, .fl-app-header, .fl-tabs {
+main, .fl-app-header, .fl-tabs, .fl-app-footer {
   max-width: 880px;
   margin: 0 auto;
   padding: 0 16px;
+}
+
+.fl-app-footer {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--fl-muted);
+  padding-top: 24px;
+  padding-bottom: 16px;
 }
 
 .fl-app-header {
@@ -374,7 +384,9 @@ main, .fl-app-header, .fl-tabs {
   gap: 8px;
   margin-top: 24px;
 }
-.fl-history h2 {
+.fl-history h2,
+.fl-gym-history h2,
+.fl-daily-head h2 {
   margin: 0;
   font-size: 16px;
 }
@@ -504,6 +516,27 @@ main, .fl-app-header, .fl-tabs {
   letter-spacing: 0.04em;
 }
 
+/* Note of the day */
+.fl-gym-note {
+  margin-top: 8px;
+}
+.fl-gym-note-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--fl-border);
+  border-radius: var(--fl-radius);
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+  resize: vertical;
+  min-height: 64px;
+}
+.fl-gym-note-input::placeholder {
+  font-style: italic;
+  color: var(--fl-muted);
+}
+
 /* Column widths — # narrow, SET/kg/rep/Speed/Incline/Time uniform */
 .fl-num {
   width: 2.5em;
@@ -519,13 +552,23 @@ main, .fl-app-header, .fl-tabs {
   width: 100%;
   box-sizing: border-box;
   text-align: center;
+  font: inherit;
+  padding: 2px 4px;
+  background: transparent;
+  color: var(--fl-fg);
+  border: 1px solid var(--fl-border);
+  border-radius: 4px;
+}
+.fl-gym-mcol input[type="number"]:focus {
+  border-color: var(--fl-accent);
+  outline: none;
 }
 
-/* Action column (Edit + Delete buttons) — fixed width so the metric columns
+/* Action column (Edit/Add set + Delete buttons) — fixed width so the metric columns
    line up identically across the LogActivity preview and the GYMLOG sub-tables. */
 .fl-gym-actions-col {
-  width: 6em;
-  min-width: 6em;
+  width: 7em;
+  min-width: 7em;
   white-space: nowrap;
   text-align: right;
 }
@@ -551,12 +594,54 @@ main, .fl-app-header, .fl-tabs {
   font-weight: 600;
 }
 
+/* Activity picker + Add + Lock on one row */
+.fl-gym-pick-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.fl-gym-pick-row select {
+  flex: 1;
+  min-width: 0;
+  /* Mirror the date-select look (.fl-daily-date) */
+  font-size: 12px;
+  color: var(--fl-muted);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  border: 1px solid var(--fl-border);
+  border-radius: 6px;
+  background: var(--fl-bg);
+  padding: 3px 8px;
+}
+.fl-gym-pick-row input[type="text"] {
+  flex: 1;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 6px;
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+}
+.fl-gym-pick-row .fl-row-edit-btn {
+  flex: 0 0 auto;
+  margin-right: 0;
+}
+
 /* Gym filter pills */
 .fl-gym-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
   margin-bottom: 12px;
+}
+.fl-gym-filter-label {
+  font-size: 12px;
+  color: var(--fl-muted);
+  font-weight: 600;
 }
 .fl-filter-pill {
   background: var(--fl-bg);

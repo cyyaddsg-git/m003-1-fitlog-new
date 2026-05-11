@@ -112,9 +112,15 @@
     </h2>
   </header>
 
-  <!-- Activity filter + selector + draft -->
+  <!-- Activity picker + filter -->
   <section class="fl-gym-entry">
+    <div class="fl-gym-pick-row">
+      <select id="fl-gym-activity" aria-label="Activity"></select>
+      <input type="text" id="fl-gym-custom-name" placeholder="Custom activity name" hidden />
+      <button type="button" class="fl-row-edit-btn" id="fl-gym-log-btn">Add</button>
+    </div>
     <div class="fl-gym-filters" id="fl-gym-filters">
+      <span class="fl-gym-filter-label">Filter:</span>
       <button type="button" class="fl-filter-pill fl-active" data-filter="all">All</button>
       <button type="button" class="fl-filter-pill" data-filter="Push">Push</button>
       <button type="button" class="fl-filter-pill" data-filter="Pull">Pull</button>
@@ -122,16 +128,6 @@
       <button type="button" class="fl-filter-pill" data-filter="Lower">Lower</button>
       <button type="button" class="fl-filter-pill" data-filter="Cardio">Cardio</button>
       <button type="button" class="fl-filter-pill" data-filter="Custom">Custom</button>
-    </div>
-    <div class="fl-gym-form">
-      <label>Activity
-        <select id="fl-gym-activity"></select>
-      </label>
-    </div>
-    <div class="fl-gym-sets" id="fl-gym-sets"></div>
-    <div class="fl-gym-actions">
-      <button type="button" class="fl-export-btn" id="fl-gym-add-set">Add set</button>
-      <button type="button" class="fl-log-day-btn" id="fl-gym-log-btn">Add Plan</button>
     </div>
     <div class="fl-validation" id="fl-gym-validation" hidden></div>
   </section>
@@ -142,7 +138,7 @@
     <div class="fl-daily-actions">
       <button type="button" class="fl-export-btn" id="fl-gym-export-btn">Export CSV</button>
       <button type="button" class="fl-clear-day-btn" id="fl-gym-clear-day">Clear day</button>
-      <button type="button" class="fl-log-day-btn" id="fl-gym-log-day">Log Day</button>
+      <button type="button" class="fl-log-day-btn" id="fl-gym-lock-btn">🔒 Lock</button>
     </div>
   </section>
 
@@ -176,6 +172,12 @@
 </section>
 
 </main>
+
+<footer class="fl-app-footer">
+  <span>Powered by</span>
+  <span>Koala</span>
+  <span>v1.3.2</span>
+</footer>
 
 <!-- ============ Settings modal ============ -->
 <div class="fl-modal" id="fl-settings-modal" hidden>
