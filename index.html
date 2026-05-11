@@ -28,6 +28,14 @@
 <!-- ============ FoodLog tab ============ -->
 <section class="fl-panel" data-panel="logging" role="tabpanel">
 
+  <!-- Daily Log header at top -->
+  <header class="fl-daily-head">
+    <h2>
+      <span>Daily Log</span>
+      <select class="fl-daily-date" id="fl-daily-date" aria-label="Daily log date"></select>
+    </h2>
+  </header>
+
   <div class="fl-input-row">
     <textarea id="fl-input" rows="3" placeholder="Describe a meal in any language…"></textarea>
     <button type="button" class="fl-send-btn" id="fl-send-btn">Send</button>
@@ -54,12 +62,8 @@
     </div>
   </section>
 
-  <!-- Daily Log -->
+  <!-- Daily Log table + actions -->
   <section class="fl-daily">
-    <h2>
-      <span>Daily Log</span>
-      <select class="fl-daily-date" id="fl-daily-date" aria-label="Daily log date"></select>
-    </h2>
     <div class="fl-table-wrap">
       <table class="fl-table fl-daily-table" id="fl-daily-table"></table>
     </div>
@@ -99,8 +103,17 @@
 
 <!-- ============ GymLog tab ============ -->
 <section class="fl-panel" data-panel="gym" role="tabpanel" hidden>
+
+  <!-- Daily Log header at top -->
+  <header class="fl-daily-head">
+    <h2>
+      <span>Daily Log</span>
+      <select class="fl-daily-date" id="fl-gym-date" aria-label="Daily gym log date"></select>
+    </h2>
+  </header>
+
+  <!-- Activity filter + selector + draft -->
   <section class="fl-gym-entry">
-    <h2>Log Activity</h2>
     <div class="fl-gym-filters" id="fl-gym-filters">
       <button type="button" class="fl-filter-pill fl-active" data-filter="all">All</button>
       <button type="button" class="fl-filter-pill" data-filter="Push">Push</button>
@@ -123,16 +136,20 @@
     <div class="fl-validation" id="fl-gym-validation" hidden></div>
   </section>
 
+  <!-- Daily activities (WEIGHT + CARDIO) + actions -->
   <section class="fl-gym-daily">
-    <h2>
-      <span>GymLog</span>
-      <select class="fl-daily-date" id="fl-gym-date" aria-label="GymLog date"></select>
-    </h2>
     <div class="fl-gym-section" id="fl-gym-table"></div>
     <div class="fl-daily-actions">
-      <button type="button" class="fl-log-day-btn" id="fl-gym-log-day">Log Day</button>
+      <button type="button" class="fl-export-btn" id="fl-gym-export-btn">Export CSV</button>
       <button type="button" class="fl-clear-day-btn" id="fl-gym-clear-day">Clear day</button>
+      <button type="button" class="fl-log-day-btn" id="fl-gym-log-day">Log Day</button>
     </div>
+  </section>
+
+  <!-- Gym History placeholder -->
+  <section class="fl-gym-history">
+    <h2>Gym History</h2>
+    <p class="fl-empty">History view coming in a later phase.</p>
   </section>
 
 </section>

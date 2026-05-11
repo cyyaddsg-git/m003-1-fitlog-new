@@ -268,11 +268,18 @@ main, .fl-app-header, .fl-tabs {
   background: var(--fl-bg);
   padding: 3px 8px;
 }
-.fl-daily h2 {
+.fl-daily h2,
+.fl-daily-head h2 {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+.fl-daily-head {
+  margin: 4px 0 12px;
+}
+.fl-daily-head h2 {
+  margin: 0;
 }
 
 .fl-daily-table tr.fl-meal-row { cursor: pointer; }

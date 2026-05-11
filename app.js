@@ -639,6 +639,7 @@ const els = {
   gymTable: $('#fl-gym-table'),
   gymClearDay: $('#fl-gym-clear-day'),
   gymLogDay: $('#fl-gym-log-day'),
+  gymExportBtn: $('#fl-gym-export-btn'),
   gymFilters: $('#fl-gym-filters'),
   profileOut: $('#fl-profile-out'),
   profileIn: $('#fl-profile-in'),
@@ -1884,6 +1885,7 @@ els.gymLogDay.addEventListener('click', () => {
   showGymValidation('Day logged. History view coming in a later phase.');
   setTimeout(() => showGymValidation(null), 2500);
 });
+els.gymExportBtn.addEventListener('click', exportGymCSV);
 
 // ============ FoodLibrary tab ============
 
@@ -2121,6 +2123,26 @@ function exportDailyCSV() {
     '', '', '', '', '']);
 
   downloadCSV(`fitlog_daily_${date}.csv`, rows);
+}
+
+function exportGymCSV() {
+  const date = selectedGymDate || todayISO();
+  const all = loadGym();
+  const day = gymDay(all, date);
+  const rows = [['date', 'type', 'activity_idx', 'activity', 'set_idx', 'kg', 'rep', 'speed', 'incline', 'time_min']];
+  (day.activities || []).forEach((a, ai) => {
+    const setRows = Array.isArray(a.rows) && a.rows.length ? a.rows : [{}];
+    setRows.forEach((r, si) => {
+      if (a.kind === 'cardio') {
+        rows.push([date, 'cardio', ai + 1, a.name || '', si + 1, '', '',
+          r.speed ?? '', r.incline ?? '', r.time ?? '']);
+      } else {
+        rows.push([date, 'weight', ai + 1, a.name || '', si + 1,
+          r.kg ?? '', r.rep ?? '', '', '', '']);
+      }
+    });
+  });
+  downloadCSV(`fitlog_gym_${date}.csv`, rows);
 }
 
 function exportHistoryCSV() {
