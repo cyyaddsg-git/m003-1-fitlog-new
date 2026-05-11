@@ -594,8 +594,8 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   width: 100%;
 }
 .fl-gym-metric-input-wrap input[type="number"] {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 5ch;   /* never narrower than 5 chars; grows up to cell width */
 }
 .fl-gym-metric-unit {
   flex: 0 0 auto;
