@@ -33,8 +33,11 @@
 
   <!-- Daily Log header at top -->
   <header class="fl-daily-head">
-    <h2>
-      <span>Daily Log</span>
+    <div class="fl-daily-head-top">
+      <h2>Daily Log</h2>
+      <button type="button" class="fl-icon-btn fl-settings-inline-btn" id="fl-settings-btn">Settings</button>
+    </div>
+    <div class="fl-daily-head-selects">
       <select class="fl-daily-date" id="fl-daily-date" aria-label="Daily log date"></select>
       <select id="fl-daily-target-mode" aria-label="Target mode">
         <option value="normal">Target: Normal</option>
@@ -43,8 +46,7 @@
         <option value="custom">Target: Custom</option>
         <option value="none">Target: None</option>
       </select>
-      <button type="button" class="fl-icon-btn fl-settings-inline-btn" id="fl-settings-btn">Settings</button>
-    </h2>
+    </div>
   </header>
 
   <div class="fl-input-row">
@@ -81,7 +83,6 @@
     <div class="fl-daily-actions">
       <button type="button" class="fl-export-btn" id="fl-export-daily-btn">Export CSV</button>
       <button type="button" class="fl-clear-day-btn" id="fl-clear-day-btn">Clear day</button>
-      <button type="button" class="fl-log-day-btn" id="fl-log-day-btn">Log Day</button>
     </div>
   </section>
 
@@ -91,7 +92,7 @@
     <div class="fl-table-wrap">
       <table class="fl-table fl-history-table" id="fl-history-table"></table>
     </div>
-    <p class="fl-empty" id="fl-history-empty" hidden>No days logged yet — press “Log Day” to snapshot the selected day’s totals.</p>
+    <p class=”fl-empty” id=”fl-history-empty” hidden>No days logged yet — totals are saved automatically as you log meals.</p>
     <div class="fl-history-actions">
       <button type="button" class="fl-export-btn" id="fl-export-history-btn">Export CSV</button>
       <button type="button" class="fl-clear-history-btn" id="fl-clear-history-btn">Clear history</button>
@@ -188,11 +189,11 @@
     <label><span class="fl-metric-label">Height (cm)</span><input type="number" id="fl-profile-height" min="100" max="250" step="1" placeholder="—" /></label>
     <label><span class="fl-metric-label">Activity</span>
       <select id="fl-profile-activity">
-        <option value="sedentary">Sedentary&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(&lt;1 exercise/week)</option>
-        <option value="light">Light Active&nbsp;&nbsp;&nbsp;&nbsp;(1–3 exercise/week)</option>
-        <option value="moderate">Moderate Active&nbsp;(3–5 exercise/week)</option>
-        <option value="very">Very Active&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(6–7 exercise/week)</option>
-        <option value="extra">Extra Active&nbsp;&nbsp;&nbsp;&nbsp;(daily / physical job)</option>
+        <option value="sedentary">Sedentary (&lt;1 ex/wk)</option>
+        <option value="light">Light Active (1–3 ex/wk)</option>
+        <option value="moderate">Moderate Active (3–5 ex/wk)</option>
+        <option value="very">Very Active (6–7 ex/wk)</option>
+        <option value="extra">Extra Active (daily/phys.)</option>
       </select>
     </label>
   </section>

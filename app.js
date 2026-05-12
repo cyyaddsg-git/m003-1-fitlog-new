@@ -1458,6 +1458,24 @@ function renderDaily() {
   tbody.appendChild(trRemain);
 
   tbl.appendChild(tbody);
+
+  // Auto-sync today's totals → Food History
+  const hasAny = NUMERIC_COLS.some((k) => dayTotal[k] > 0);
+  if (hasAny) {
+    const targetObj = targetForDate(date);
+    const entry = {
+      date,
+      target: targetObj ? targetObj.kcal : null,
+      kcal: dayTotal.kcal, p: dayTotal.p, f: dayTotal.f, c: dayTotal.c, su: dayTotal.su, fb: dayTotal.fb,
+      savedAt: new Date().toISOString(),
+    };
+    const hist = loadHistory();
+    const idx = hist.findIndex((h) => h.date === date);
+    if (idx >= 0) hist[idx] = entry; else hist.push(entry);
+    hist.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    saveHistory(hist);
+    renderHistory();
+  }
 }
 
 els.clearDayBtn.addEventListener('click', () => {
@@ -1466,7 +1484,10 @@ els.clearDayBtn.addEventListener('click', () => {
   const all = loadDaily();
   delete all[date];
   saveDaily(all);
+  const hist = loadHistory().filter((h) => h.date !== date);
+  saveHistory(hist);
   renderDaily();
+  renderHistory();
 });
 
 els.dailyDate.addEventListener('change', () => {
@@ -2101,7 +2122,6 @@ function renderHistory() {
   tbl.appendChild(tbody);
 }
 
-els.logDayBtn.addEventListener('click', logDay);
 els.clearHistoryBtn.addEventListener('click', () => {
   if (!confirm('Clear all Food History snapshots? This cannot be undone.')) return;
   saveHistory([]);
