@@ -1032,6 +1032,7 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   width: 90px;
 }
 .fl-profile-metrics select { width: auto; }
+#fl-profile-activity { font-family: ui-monospace, Menlo, 'Courier New', monospace; font-size: 12px; }
 .fl-profile-summary-text {
   font-size: 13px;
   color: var(--fl-muted);
