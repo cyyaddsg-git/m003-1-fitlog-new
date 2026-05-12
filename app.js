@@ -16,6 +16,7 @@ const KEY_LIBRARY_SEED = `${STORAGE_PREFIX}_librarySeedVersion`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
 const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
 const KEY_GYM = `${STORAGE_PREFIX}_gymLog`;
+const KEY_PROFILE = `${STORAGE_PREFIX}_profile`;
 
 const SUPPORTED_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
@@ -381,6 +382,20 @@ function saveGym(g) {
   safeLS.setJSON(KEY_GYM, g);
   syncToFirestore('gymLog', g);
 }
+function loadProfile() {
+  return safeLS.getJSON(KEY_PROFILE, {
+    gender: 'female',
+    age: null,
+    weight: null,
+    height: null,
+    activityLevel: 'sedentary',
+    customTdee: { kcal: null, p: null, f: null, sugarMax: null, fiberMin: null },
+  });
+}
+function saveProfile(p) {
+  safeLS.setJSON(KEY_PROFILE, p);
+  syncToFirestore('profile', p);
+}
 
 // ============ Utilities ============
 
@@ -583,9 +598,83 @@ function buildPromptWithContext(basePrompt, matched) {
   return basePrompt + '\n\nLIBRARY_CONTEXT:\n```json\n' + JSON.stringify(slim, null, 2) + '\n```';
 }
 
+// ============ Calculations ============
+
+const ACTIVITY_FACTOR = {
+  sedentary: 1.20, light: 1.375, moderate: 1.55, very: 1.725, extra: 1.90,
+};
+
+function computeBMR(p) {
+  if (!p.weight || !p.height || !p.age) return null;
+  const base = 10 * p.weight + 6.25 * p.height - 5 * p.age;
+  return p.gender === 'male' ? base + 5 : base - 161;
+}
+
+function computeBMI(p) {
+  if (!p.weight || !p.height) return null;
+  const m = p.height / 100;
+  return p.weight / (m * m);
+}
+
+function bmiClass(bmi) {
+  if (bmi == null) return null;
+  if (bmi < 18.5) return 'Underweight';
+  if (bmi < 25)   return 'Normal';
+  if (bmi < 30)   return 'Overweight';
+  return 'Obese';
+}
+
+function tdeeNormal(p) {
+  const bmr = computeBMR(p);
+  if (bmr == null) return null;
+  return Math.round(bmr * (ACTIVITY_FACTOR[p.activityLevel] || 1.20));
+}
+
+function macrosFor(mode, p, kcal) {
+  const RULES = {
+    normal: { p: 1.0,  f: 0.9 },
+    diet:   { p: 1.75, f: 0.8 },
+    high:   { p: 1.75, f: 1.0 },
+  };
+  const r = RULES[mode];
+  if (!r || !p.weight) return null;
+  const proteinG = Math.round(r.p * p.weight);
+  const fatG     = Math.round(r.f * p.weight);
+  const carbG    = Math.max(0, Math.round((kcal - proteinG * 4 - fatG * 9) / 4));
+  return { kcal, p: proteinG, f: fatG, c: carbG };
+}
+
+function carbFromKcal(kcal, pG, fG) {
+  return Math.max(0, Math.round((kcal - pG * 4 - fG * 9) / 4));
+}
+
+function sugarMaxG(kcalNormal) {
+  return Math.min(50, Math.round((kcalNormal * 0.10 / 4) / 5) * 5);
+}
+
+function fiberMinG(gender) {
+  return gender === 'male' ? 38 : 25;
+}
+
+function targetForDate(date) {
+  const all = loadDaily();
+  const mode = (all[date] && all[date].targetMode) || 'normal';
+  if (mode === 'none') return null;
+  if (mode === 'custom') {
+    const c = profileState.customTdee;
+    if (!c || c.kcal == null) return null;
+    return { kcal: c.kcal, p: c.p, f: c.f, c: carbFromKcal(c.kcal, c.p || 0, c.f || 0) };
+  }
+  const normal = tdeeNormal(profileState);
+  if (normal == null) return null;
+  const kcal = mode === 'diet' ? normal - 300 : mode === 'high' ? normal + 200 : normal;
+  return macrosFor(mode, profileState, kcal);
+}
+
 // ============ State ============
 
 let state = loadSettings();
+let profileState = loadProfile();
 let lastPreview = null; // { rows: [...], notes: [...] }
 let selectedDailyDate = todayISO();
 let selectedGymDate = todayISO();
@@ -645,6 +734,20 @@ const els = {
   signinBtn: $('#fl-signin-btn'),
   signoutBtn: $('#fl-signout-btn'),
   syncStatus: $('#fl-sync-status'),
+  profileAge: $('#fl-profile-age'),
+  profileWeight: $('#fl-profile-weight'),
+  profileHeight: $('#fl-profile-height'),
+  profileActivity: $('#fl-profile-activity'),
+  profileSummaryText: $('#fl-profile-summary-text'),
+  profileTdeeMode: $('#fl-tdee-mode'),
+  profileTdeeKcal: $('#fl-tdee-kcal'),
+  profileTdeeP: $('#fl-tdee-p'),
+  profileTdeeF: $('#fl-tdee-f'),
+  profileTdeeC: $('#fl-tdee-c'),
+  profileTdeeSugar: $('#fl-tdee-sugar'),
+  profileTdeeFiber: $('#fl-tdee-fiber'),
+  profileSaveCustom: $('#fl-save-custom'),
+  dailyTargetMode: $('#fl-daily-target-mode'),
 };
 
 // ============ UI helpers ============
@@ -1186,6 +1289,13 @@ function renderDaily() {
   renderDailyDateOptions();
 
   const all = loadDaily();
+
+  // Sync target mode dropdown with stored mode for this date
+  if (els.dailyTargetMode) {
+    const storedMode = (all[date] && all[date].targetMode) || 'normal';
+    els.dailyTargetMode.value = storedMode;
+  }
+
   const day = getDay(all, date);
 
   const tbl = els.dailyTable;
@@ -1292,8 +1402,8 @@ function renderDaily() {
   trTotal.appendChild(document.createElement('td'));
   tbody.appendChild(trTotal);
 
-  // Target kcal stays hidden until profile support lands.
-  const targetKcal = null;
+  const target = targetForDate(date);
+  const MACRO_COLS = new Set(['kcal', 'p', 'f', 'c']);
   const trTarget = document.createElement('tr');
   trTarget.classList.add('fl-target-row');
   const tdT = document.createElement('td');
@@ -1302,13 +1412,14 @@ function renderDaily() {
   NUMERIC_COLS.forEach((k) => {
     const td = document.createElement('td');
     td.classList.add('fl-num');
-    td.textContent = k === 'kcal' && targetKcal != null ? fmtNum(targetKcal, 0) : '—';
+    td.textContent = target && MACRO_COLS.has(k) && target[k] != null
+      ? (k === 'kcal' ? fmtNum(target[k], 0) : fmtNum(target[k], 1))
+      : '—';
     trTarget.appendChild(td);
   });
   trTarget.appendChild(document.createElement('td'));
   tbody.appendChild(trTarget);
 
-  // Remain row — kcal only.
   const trRemain = document.createElement('tr');
   trRemain.classList.add('fl-remain-row');
   const tdR = document.createElement('td');
@@ -1317,8 +1428,8 @@ function renderDaily() {
   NUMERIC_COLS.forEach((k) => {
     const td = document.createElement('td');
     td.classList.add('fl-num');
-    td.textContent = k === 'kcal' && targetKcal != null
-      ? fmtNum(targetKcal - dayTotal.kcal, 0)
+    td.textContent = target && MACRO_COLS.has(k) && target[k] != null
+      ? (k === 'kcal' ? fmtNum(target[k] - dayTotal[k], 0) : fmtNum(target[k] - dayTotal[k], 1))
       : '—';
     trRemain.appendChild(td);
   });
@@ -2117,6 +2228,7 @@ async function syncAllToFirestore() {
   await syncToFirestore('dailyLog', loadDaily());
   await syncToFirestore('foodHistory', loadHistory());
   await syncToFirestore('gymLog', loadGym());
+  await syncToFirestore('profile', profileState);
 }
 
 async function syncFromFirestore() {
@@ -2166,6 +2278,10 @@ async function syncFromFirestore() {
         const merged = { ...local, ...data };
         saveGym(merged);
         hasChanges = true;
+      } else if (category === 'profile') {
+        profileState = { ...loadProfile(), ...data };
+        saveProfile(profileState);
+        hasChanges = true;
       }
     });
     
@@ -2174,6 +2290,7 @@ async function syncFromFirestore() {
       renderHistory();
       renderLibrary();
       renderGym();
+      loadProfileIntoUI();
     }
     setSyncStatus('Synced from cloud');
   } catch (e) {
@@ -2197,6 +2314,159 @@ function updateProfileUI() {
     els.profileEmail.textContent = '';
     els.syncStatus.textContent = '';
   }
+  loadProfileIntoUI();
+}
+
+// ============ Profile Metrics ============
+
+function renderProfileSummary() {
+  const p = profileState;
+  const bmi = computeBMI(p);
+  const bmr = computeBMR(p);
+  const tn = tdeeNormal(p);
+  const bmiStr = bmi != null ? `${bmi.toFixed(1)} (${bmiClass(bmi)})` : '—';
+  const bmrStr = bmr != null ? `${Math.round(bmr).toLocaleString()} kcal` : '—';
+  const tdeeStr = tn != null ? `${tn.toLocaleString()} kcal` : '—';
+  if (els.profileSummaryText) {
+    els.profileSummaryText.innerHTML =
+      `BMI <strong>${bmiStr}</strong> &nbsp;·&nbsp; BMR <strong>${bmrStr}</strong> &nbsp;·&nbsp; TDEE Normal <strong>${tdeeStr}</strong>`;
+  }
+}
+
+function getDistributionValues(mode) {
+  const p = profileState;
+  if (mode === 'custom') {
+    const c = p.customTdee || {};
+    const kcal = c.kcal ?? null;
+    const pG = c.p ?? null;
+    const fG = c.f ?? null;
+    const carbG = (kcal != null && pG != null && fG != null) ? carbFromKcal(kcal, pG, fG) : null;
+    return { kcal, p: pG, f: fG, c: carbG, sugarMax: c.sugarMax ?? null, fiberMin: c.fiberMin ?? null, editable: true };
+  }
+  const normal = tdeeNormal(p);
+  if (normal == null) {
+    return { kcal: null, p: null, f: null, c: null, sugarMax: null, fiberMin: null, editable: false };
+  }
+  const kcal = mode === 'diet' ? normal - 300 : mode === 'high' ? normal + 200 : normal;
+  const macros = macrosFor(mode, p, kcal);
+  return {
+    kcal: macros ? macros.kcal : null,
+    p: macros ? macros.p : null,
+    f: macros ? macros.f : null,
+    c: macros ? macros.c : null,
+    sugarMax: sugarMaxG(normal),
+    fiberMin: fiberMinG(p.gender),
+    editable: false,
+  };
+}
+
+function renderProfileDistribution() {
+  const mode = els.profileTdeeMode ? els.profileTdeeMode.value : 'normal';
+  const vals = getDistributionValues(mode);
+
+  function setField(el, val, editable) {
+    if (!el) return;
+    el.readOnly = !editable;
+    el.value = val != null ? val : '';
+  }
+
+  setField(els.profileTdeeKcal, vals.kcal, vals.editable);
+  setField(els.profileTdeeP, vals.p, vals.editable);
+  setField(els.profileTdeeF, vals.f, vals.editable);
+  if (els.profileTdeeC) els.profileTdeeC.textContent = vals.c != null ? vals.c : '—';
+  setField(els.profileTdeeSugar, vals.sugarMax, vals.editable);
+  setField(els.profileTdeeFiber, vals.fiberMin, vals.editable);
+}
+
+function loadProfileIntoUI() {
+  const p = profileState;
+  const radio = document.querySelector(`input[name="fl-profile-gender"][value="${p.gender || 'female'}"]`);
+  if (radio) radio.checked = true;
+  if (els.profileAge) els.profileAge.value = p.age ?? '';
+  if (els.profileWeight) els.profileWeight.value = p.weight ?? '';
+  if (els.profileHeight) els.profileHeight.value = p.height ?? '';
+  if (els.profileActivity) els.profileActivity.value = p.activityLevel || 'sedentary';
+  renderProfileSummary();
+  renderProfileDistribution();
+}
+
+function saveProfileFromUI() {
+  const genderRadio = document.querySelector('input[name="fl-profile-gender"]:checked');
+  profileState.gender = genderRadio ? genderRadio.value : 'female';
+  profileState.age = els.profileAge && els.profileAge.value ? Number(els.profileAge.value) : null;
+  profileState.weight = els.profileWeight && els.profileWeight.value ? Number(els.profileWeight.value) : null;
+  profileState.height = els.profileHeight && els.profileHeight.value ? Number(els.profileHeight.value) : null;
+  profileState.activityLevel = els.profileActivity ? (els.profileActivity.value || 'sedentary') : 'sedentary';
+  saveProfile(profileState);
+  renderProfileSummary();
+  renderProfileDistribution();
+  renderDaily();
+}
+
+// ============ Profile input events ============
+
+document.querySelectorAll('input[name="fl-profile-gender"]').forEach((r) => {
+  r.addEventListener('change', saveProfileFromUI);
+});
+if (els.profileAge) els.profileAge.addEventListener('change', saveProfileFromUI);
+if (els.profileWeight) els.profileWeight.addEventListener('change', saveProfileFromUI);
+if (els.profileHeight) els.profileHeight.addEventListener('change', saveProfileFromUI);
+if (els.profileActivity) els.profileActivity.addEventListener('change', saveProfileFromUI);
+
+if (els.profileTdeeMode) {
+  els.profileTdeeMode.addEventListener('change', renderProfileDistribution);
+}
+
+function onCustomMacroInput() {
+  const mode = els.profileTdeeMode ? els.profileTdeeMode.value : 'normal';
+  if (mode !== 'custom') return;
+  const kcal = Number(els.profileTdeeKcal.value) || 0;
+  const pG = Number(els.profileTdeeP.value) || 0;
+  const fG = Number(els.profileTdeeF.value) || 0;
+  if (els.profileTdeeC) els.profileTdeeC.textContent = carbFromKcal(kcal, pG, fG);
+}
+if (els.profileTdeeKcal) els.profileTdeeKcal.addEventListener('input', onCustomMacroInput);
+if (els.profileTdeeP) els.profileTdeeP.addEventListener('input', onCustomMacroInput);
+if (els.profileTdeeF) els.profileTdeeF.addEventListener('input', onCustomMacroInput);
+
+if (els.profileSaveCustom) {
+  els.profileSaveCustom.addEventListener('click', () => {
+    const mode = els.profileTdeeMode ? els.profileTdeeMode.value : 'normal';
+    if (mode === 'custom') {
+      profileState.customTdee = {
+        kcal: els.profileTdeeKcal ? (Number(els.profileTdeeKcal.value) || null) : null,
+        p: els.profileTdeeP ? (Number(els.profileTdeeP.value) || null) : null,
+        f: els.profileTdeeF ? (Number(els.profileTdeeF.value) || null) : null,
+        sugarMax: els.profileTdeeSugar ? (Number(els.profileTdeeSugar.value) || null) : null,
+        fiberMin: els.profileTdeeFiber ? (Number(els.profileTdeeFiber.value) || null) : null,
+      };
+    } else {
+      const vals = getDistributionValues(mode);
+      profileState.customTdee = {
+        kcal: vals.kcal,
+        p: vals.p,
+        f: vals.f,
+        sugarMax: vals.sugarMax,
+        fiberMin: vals.fiberMin,
+      };
+      if (els.profileTdeeMode) els.profileTdeeMode.value = 'custom';
+      renderProfileDistribution();
+    }
+    saveProfile(profileState);
+  });
+}
+
+// ============ FoodLog Target mode dropdown ============
+
+if (els.dailyTargetMode) {
+  els.dailyTargetMode.addEventListener('change', () => {
+    const date = selectedDate();
+    const all = loadDaily();
+    if (!all[date]) all[date] = blankDay();
+    all[date].targetMode = els.dailyTargetMode.value;
+    saveDaily(all);
+    renderDaily();
+  });
 }
 
 auth.onAuthStateChanged((user) => {
@@ -2219,6 +2489,7 @@ showTab('logging');
 renderDaily();
 renderHistory();
 renderLibrary();
+loadProfileIntoUI();
 
 console.info('[fitlog] mounted', { date: todayISO(), libraryCount: loadLibrary().length });
 
