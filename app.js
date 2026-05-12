@@ -663,12 +663,17 @@ function targetForDate(date) {
   if (mode === 'custom') {
     const c = profileState.customTdee;
     if (!c || c.kcal == null) return null;
-    return { kcal: c.kcal, p: c.p, f: c.f, c: carbFromKcal(c.kcal, c.p || 0, c.f || 0) };
+    return {
+      kcal: c.kcal, p: c.p, f: c.f, c: carbFromKcal(c.kcal, c.p || 0, c.f || 0),
+      sugarMax: c.sugarMax ?? null, fiberMin: c.fiberMin ?? null,
+    };
   }
   const normal = tdeeNormal(profileState);
   if (normal == null) return null;
   const kcal = mode === 'diet' ? normal - 300 : mode === 'high' ? normal + 200 : normal;
-  return macrosFor(mode, profileState, kcal);
+  const macros = macrosFor(mode, profileState, kcal);
+  if (!macros) return null;
+  return { ...macros, sugarMax: sugarMaxG(normal), fiberMin: fiberMinG(profileState.gender) };
 }
 
 // ============ State ============
@@ -684,6 +689,7 @@ let gymLocked = false; // when true, gym tables render read-only
 // ============ DOM refs ============
 
 const els = {
+  headerUser: $('#fl-header-user'),
   settingsBtn: $('#fl-settings-btn'),
   settingsModal: $('#fl-settings-modal'),
   settingsClose: $('#fl-settings-close'),
@@ -739,14 +745,14 @@ const els = {
   profileHeight: $('#fl-profile-height'),
   profileActivity: $('#fl-profile-activity'),
   profileSummaryText: $('#fl-profile-summary-text'),
-  profileTdeeMode: $('#fl-tdee-mode'),
-  profileTdeeKcal: $('#fl-tdee-kcal'),
-  profileTdeeP: $('#fl-tdee-p'),
-  profileTdeeF: $('#fl-tdee-f'),
-  profileTdeeC: $('#fl-tdee-c'),
-  profileTdeeSugar: $('#fl-tdee-sugar'),
-  profileTdeeFiber: $('#fl-tdee-fiber'),
+  profileCopyFrom: $('#fl-profile-copy-from'),
   profileSaveCustom: $('#fl-save-custom'),
+  customKcal: $('#fl-custom-kcal'),
+  customP: $('#fl-custom-p'),
+  customF: $('#fl-custom-f'),
+  customCarb: $('#fl-custom-carb'),
+  customSu: $('#fl-custom-su'),
+  customFb: $('#fl-custom-fb'),
   dailyTargetMode: $('#fl-daily-target-mode'),
 };
 
@@ -1412,9 +1418,17 @@ function renderDaily() {
   NUMERIC_COLS.forEach((k) => {
     const td = document.createElement('td');
     td.classList.add('fl-num');
-    td.textContent = target && MACRO_COLS.has(k) && target[k] != null
-      ? (k === 'kcal' ? fmtNum(target[k], 0) : fmtNum(target[k], 1))
-      : '—';
+    if (!target) {
+      td.textContent = '—';
+    } else if (k === 'su') {
+      td.textContent = target.sugarMax != null ? `< ${fmtNum(target.sugarMax, 0)}` : '—';
+    } else if (k === 'fb') {
+      td.textContent = target.fiberMin != null ? `> ${fmtNum(target.fiberMin, 0)}` : '—';
+    } else {
+      td.textContent = MACRO_COLS.has(k) && target[k] != null
+        ? (k === 'kcal' ? fmtNum(target[k], 0) : fmtNum(target[k], 1))
+        : '—';
+    }
     trTarget.appendChild(td);
   });
   trTarget.appendChild(document.createElement('td'));
@@ -1428,9 +1442,17 @@ function renderDaily() {
   NUMERIC_COLS.forEach((k) => {
     const td = document.createElement('td');
     td.classList.add('fl-num');
-    td.textContent = target && MACRO_COLS.has(k) && target[k] != null
-      ? (k === 'kcal' ? fmtNum(target[k] - dayTotal[k], 0) : fmtNum(target[k] - dayTotal[k], 1))
-      : '—';
+    if (!target) {
+      td.textContent = '—';
+    } else if (k === 'su') {
+      td.textContent = target.sugarMax != null ? fmtNum(target.sugarMax - dayTotal[k], 0) : '—';
+    } else if (k === 'fb') {
+      td.textContent = target.fiberMin != null ? fmtNum(target.fiberMin - dayTotal[k], 0) : '—';
+    } else {
+      td.textContent = MACRO_COLS.has(k) && target[k] != null
+        ? (k === 'kcal' ? fmtNum(target[k] - dayTotal[k], 0) : fmtNum(target[k] - dayTotal[k], 1))
+        : '—';
+    }
     trRemain.appendChild(td);
   });
   trRemain.appendChild(document.createElement('td'));
@@ -1988,10 +2010,11 @@ function logDay() {
   const day = getDay(all, date);
   const totals = dayTotals(day);
 
-  const target = null;
+  const targetObj = targetForDate(date);
+  const targetKcal = targetObj ? targetObj.kcal : null;
 
   const hasAny = NUMERIC_COLS.some((k) => totals[k] > 0);
-  if (!hasAny && (target == null || target === '')) {
+  if (!hasAny) {
     setStatus('Nothing to snapshot — log a meal first.', 'error');
     setTimeout(() => setStatus(null), 2500);
     return;
@@ -1999,7 +2022,7 @@ function logDay() {
 
   const entry = {
     date,
-    target: target == null || target === '' ? null : num(target),
+    target: targetKcal,
     kcal: totals.kcal,
     p: totals.p,
     f: totals.f,
@@ -2306,6 +2329,7 @@ function updateProfileUI() {
     els.profileImg.src = currentUser.photoURL || '';
     els.profileName.textContent = currentUser.displayName || 'No Name';
     els.profileEmail.textContent = currentUser.email || 'No Email';
+    if (els.headerUser) els.headerUser.textContent = currentUser.displayName || '';
   } else {
     els.profileOut.hidden = false;
     els.profileIn.hidden = true;
@@ -2313,6 +2337,7 @@ function updateProfileUI() {
     els.profileName.textContent = '';
     els.profileEmail.textContent = '';
     els.syncStatus.textContent = '';
+    if (els.headerUser) els.headerUser.textContent = '';
   }
   loadProfileIntoUI();
 }
@@ -2323,13 +2348,11 @@ function renderProfileSummary() {
   const p = profileState;
   const bmi = computeBMI(p);
   const bmr = computeBMR(p);
-  const tn = tdeeNormal(p);
   const bmiStr = bmi != null ? `${bmi.toFixed(1)} (${bmiClass(bmi)})` : '—';
   const bmrStr = bmr != null ? `${Math.round(bmr).toLocaleString()} kcal` : '—';
-  const tdeeStr = tn != null ? `${tn.toLocaleString()} kcal` : '—';
   if (els.profileSummaryText) {
     els.profileSummaryText.innerHTML =
-      `BMI <strong>${bmiStr}</strong> &nbsp;·&nbsp; BMR <strong>${bmrStr}</strong> &nbsp;·&nbsp; TDEE Normal <strong>${tdeeStr}</strong>`;
+      `BMI <strong>${bmiStr}</strong> &nbsp;·&nbsp; BMR <strong>${bmrStr}</strong>`;
   }
 }
 
@@ -2341,12 +2364,10 @@ function getDistributionValues(mode) {
     const pG = c.p ?? null;
     const fG = c.f ?? null;
     const carbG = (kcal != null && pG != null && fG != null) ? carbFromKcal(kcal, pG, fG) : null;
-    return { kcal, p: pG, f: fG, c: carbG, sugarMax: c.sugarMax ?? null, fiberMin: c.fiberMin ?? null, editable: true };
+    return { kcal, p: pG, f: fG, c: carbG, sugarMax: c.sugarMax ?? null, fiberMin: c.fiberMin ?? null };
   }
   const normal = tdeeNormal(p);
-  if (normal == null) {
-    return { kcal: null, p: null, f: null, c: null, sugarMax: null, fiberMin: null, editable: false };
-  }
+  if (normal == null) return { kcal: null, p: null, f: null, c: null, sugarMax: null, fiberMin: null };
   const kcal = mode === 'diet' ? normal - 300 : mode === 'high' ? normal + 200 : normal;
   const macros = macrosFor(mode, p, kcal);
   return {
@@ -2356,26 +2377,43 @@ function getDistributionValues(mode) {
     c: macros ? macros.c : null,
     sugarMax: sugarMaxG(normal),
     fiberMin: fiberMinG(p.gender),
-    editable: false,
   };
 }
 
-function renderProfileDistribution() {
-  const mode = els.profileTdeeMode ? els.profileTdeeMode.value : 'normal';
-  const vals = getDistributionValues(mode);
+function fmtCell(v) { return v != null ? String(v) : '—'; }
 
-  function setField(el, val, editable) {
-    if (!el) return;
-    el.readOnly = !editable;
-    el.value = val != null ? val : '';
+function renderTargetsTable() {
+  const rowIds = ['normal', 'diet', 'high'];
+  rowIds.forEach((mode) => {
+    const row = document.getElementById(`fl-targets-row-${mode}`);
+    if (!row) return;
+    const vals = getDistributionValues(mode);
+    const cells = row.querySelectorAll('td');
+    // cells[0] = label; 1=kcal 2=p 3=f 4=c 5=su 6=fb
+    cells[1].textContent = fmtCell(vals.kcal);
+    cells[2].textContent = fmtCell(vals.p);
+    cells[3].textContent = fmtCell(vals.f);
+    cells[4].textContent = fmtCell(vals.c);
+    cells[5].textContent = fmtCell(vals.sugarMax);
+    cells[6].textContent = fmtCell(vals.fiberMin);
+  });
+  // Custom row: load from profileState.customTdee into inputs
+  const c = profileState.customTdee || {};
+  if (els.customKcal) els.customKcal.value = c.kcal ?? '';
+  if (els.customP) els.customP.value = c.p ?? '';
+  if (els.customF) els.customF.value = c.f ?? '';
+  if (els.customSu) els.customSu.value = c.sugarMax ?? '';
+  if (els.customFb) els.customFb.value = c.fiberMin ?? '';
+  updateCustomCarb();
+}
+
+function updateCustomCarb() {
+  const kcal = Number(els.customKcal ? els.customKcal.value : 0) || 0;
+  const pG = Number(els.customP ? els.customP.value : 0) || 0;
+  const fG = Number(els.customF ? els.customF.value : 0) || 0;
+  if (els.customCarb) {
+    els.customCarb.textContent = (kcal || pG || fG) ? carbFromKcal(kcal, pG, fG) : '—';
   }
-
-  setField(els.profileTdeeKcal, vals.kcal, vals.editable);
-  setField(els.profileTdeeP, vals.p, vals.editable);
-  setField(els.profileTdeeF, vals.f, vals.editable);
-  if (els.profileTdeeC) els.profileTdeeC.textContent = vals.c != null ? vals.c : '—';
-  setField(els.profileTdeeSugar, vals.sugarMax, vals.editable);
-  setField(els.profileTdeeFiber, vals.fiberMin, vals.editable);
 }
 
 function loadProfileIntoUI() {
@@ -2387,7 +2425,7 @@ function loadProfileIntoUI() {
   if (els.profileHeight) els.profileHeight.value = p.height ?? '';
   if (els.profileActivity) els.profileActivity.value = p.activityLevel || 'sedentary';
   renderProfileSummary();
-  renderProfileDistribution();
+  renderTargetsTable();
 }
 
 function saveProfileFromUI() {
@@ -2399,7 +2437,7 @@ function saveProfileFromUI() {
   profileState.activityLevel = els.profileActivity ? (els.profileActivity.value || 'sedentary') : 'sedentary';
   saveProfile(profileState);
   renderProfileSummary();
-  renderProfileDistribution();
+  renderTargetsTable();
   renderDaily();
 }
 
@@ -2413,45 +2451,35 @@ if (els.profileWeight) els.profileWeight.addEventListener('change', saveProfileF
 if (els.profileHeight) els.profileHeight.addEventListener('change', saveProfileFromUI);
 if (els.profileActivity) els.profileActivity.addEventListener('change', saveProfileFromUI);
 
-if (els.profileTdeeMode) {
-  els.profileTdeeMode.addEventListener('change', renderProfileDistribution);
+// Custom row inputs → auto-derive carb
+[els.customKcal, els.customP, els.customF].forEach((el) => {
+  if (el) el.addEventListener('input', updateCustomCarb);
+});
+
+// "Copy from" dropdown → prefill Custom row inputs from preset
+if (els.profileCopyFrom) {
+  els.profileCopyFrom.addEventListener('change', () => {
+    const preset = els.profileCopyFrom.value;
+    const vals = getDistributionValues(preset);
+    if (els.customKcal) els.customKcal.value = vals.kcal ?? '';
+    if (els.customP) els.customP.value = vals.p ?? '';
+    if (els.customF) els.customF.value = vals.f ?? '';
+    if (els.customSu) els.customSu.value = vals.sugarMax ?? '';
+    if (els.customFb) els.customFb.value = vals.fiberMin ?? '';
+    updateCustomCarb();
+  });
 }
 
-function onCustomMacroInput() {
-  const mode = els.profileTdeeMode ? els.profileTdeeMode.value : 'normal';
-  if (mode !== 'custom') return;
-  const kcal = Number(els.profileTdeeKcal.value) || 0;
-  const pG = Number(els.profileTdeeP.value) || 0;
-  const fG = Number(els.profileTdeeF.value) || 0;
-  if (els.profileTdeeC) els.profileTdeeC.textContent = carbFromKcal(kcal, pG, fG);
-}
-if (els.profileTdeeKcal) els.profileTdeeKcal.addEventListener('input', onCustomMacroInput);
-if (els.profileTdeeP) els.profileTdeeP.addEventListener('input', onCustomMacroInput);
-if (els.profileTdeeF) els.profileTdeeF.addEventListener('input', onCustomMacroInput);
-
+// Save as Custom — reads Custom row inputs → persists to profileState
 if (els.profileSaveCustom) {
   els.profileSaveCustom.addEventListener('click', () => {
-    const mode = els.profileTdeeMode ? els.profileTdeeMode.value : 'normal';
-    if (mode === 'custom') {
-      profileState.customTdee = {
-        kcal: els.profileTdeeKcal ? (Number(els.profileTdeeKcal.value) || null) : null,
-        p: els.profileTdeeP ? (Number(els.profileTdeeP.value) || null) : null,
-        f: els.profileTdeeF ? (Number(els.profileTdeeF.value) || null) : null,
-        sugarMax: els.profileTdeeSugar ? (Number(els.profileTdeeSugar.value) || null) : null,
-        fiberMin: els.profileTdeeFiber ? (Number(els.profileTdeeFiber.value) || null) : null,
-      };
-    } else {
-      const vals = getDistributionValues(mode);
-      profileState.customTdee = {
-        kcal: vals.kcal,
-        p: vals.p,
-        f: vals.f,
-        sugarMax: vals.sugarMax,
-        fiberMin: vals.fiberMin,
-      };
-      if (els.profileTdeeMode) els.profileTdeeMode.value = 'custom';
-      renderProfileDistribution();
-    }
+    profileState.customTdee = {
+      kcal: els.customKcal ? (Number(els.customKcal.value) || null) : null,
+      p: els.customP ? (Number(els.customP.value) || null) : null,
+      f: els.customF ? (Number(els.customF.value) || null) : null,
+      sugarMax: els.customSu ? (Number(els.customSu.value) || null) : null,
+      fiberMin: els.customFb ? (Number(els.customFb.value) || null) : null,
+    };
     saveProfile(profileState);
   });
 }

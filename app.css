@@ -979,16 +979,14 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   margin-bottom: 16px;
 }
 
-/* Body Metrics / BMI·BMR·TDEE / Distribution sections */
+/* Body Metrics / BMI·BMR·TDEE / Targets sections */
 .fl-profile-metrics,
-.fl-profile-summary,
 .fl-profile-targets {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--fl-border);
 }
 .fl-profile-metrics h2,
-.fl-profile-summary h2,
 .fl-profile-targets h2 {
   font-size: 13px;
   font-weight: 600;
@@ -1032,53 +1030,36 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   margin: 0;
 }
 .fl-profile-summary-text strong { color: var(--fl-fg); }
-.fl-tdee-mode-row {
+.fl-targets-table input[type="number"] {
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 6px;
+  border: 1px solid var(--fl-border);
+  border-radius: 6px;
+  background: var(--fl-bg);
+  width: 56px;
+  text-align: right;
+}
+.fl-targets-copy-row {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  margin-bottom: 10px;
+  margin-top: 8px;
 }
-.fl-tdee-mode-row select {
+.fl-targets-copy-row select {
   font: inherit;
-  padding: 4px 8px;
+  font-size: 12px;
+  padding: 3px 8px;
   border: 1px solid var(--fl-border);
   border-radius: 6px;
   background: var(--fl-bg);
 }
-.fl-tdee-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-.fl-tdee-fields label {
+.fl-copy-from-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 6px;
 }
-.fl-tdee-fields input[type="number"] {
-  font: inherit;
-  padding: 4px 8px;
-  border: 1px solid var(--fl-border);
-  border-radius: 6px;
-  background: var(--fl-bg);
-  width: 80px;
-}
-.fl-tdee-fields input[readonly] {
-  background: var(--fl-bg-subtle);
-  color: var(--fl-muted);
-}
-.fl-tdee-derived {
-  display: inline-block;
-  width: 80px;
-  padding: 4px 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--fl-fg);
-}
-.fl-tdee-fields small { font-size: 11px; color: var(--fl-muted); }
 .fl-save-custom-btn {
   font-size: 13px;
   padding: 6px 14px;
@@ -1088,6 +1069,21 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   font-size: 11px;
   color: var(--fl-muted);
   margin: 8px 0 0;
+}
+
+/* App header user display */
+.fl-header-user {
+  font-size: 13px;
+  color: var(--fl-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+/* Settings button inside FoodLog Daily Log header */
+.fl-settings-inline-btn {
+  margin-left: auto;
 }
 
 /* FoodLog Target mode dropdown */
