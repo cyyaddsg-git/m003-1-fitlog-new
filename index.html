@@ -13,7 +13,10 @@
 
 <header class="fl-app-header">
   <h1>FitLog</h1>
-  <span id="fl-header-user" class="fl-header-user"></span>
+  <div class="fl-header-auth">
+    <button type="button" class="fl-icon-btn" id="fl-signin-btn">Sign in</button>
+    <span id="fl-header-user" class="fl-header-user" hidden></span>
+  </div>
 </header>
 
 <nav class="fl-tabs" role="tablist">
@@ -160,42 +163,36 @@
 
 <!-- ============ Profile tab ============ -->
 <section class="fl-panel" data-panel="profile" role="tabpanel" hidden>
-  <div id="fl-profile-out">
-    <h2>Account</h2>
-    <p>Sign in to sync your logs and library across devices.</p>
-    <button type="button" class="fl-log-btn" id="fl-signin-btn">Sign in with Google</button>
-  </div>
-  <div id="fl-profile-in" hidden>
-    <h2>Your Profile</h2>
-    <div class="fl-profile-card">
-      <img id="fl-profile-img" src="" alt="Profile" />
-      <div class="fl-profile-info">
-        <strong id="fl-profile-name"></strong>
-        <span id="fl-profile-email"></span>
-      </div>
+
+  <!-- Compact account bar — shown only when signed in -->
+  <div class="fl-account-bar" id="fl-account-bar" hidden>
+    <img id="fl-profile-img" src="" alt="" class="fl-account-avatar" />
+    <div class="fl-account-info">
+      <strong id="fl-profile-name"></strong>
+      <span id="fl-profile-email"></span>
+      <div class="fl-sync-status" id="fl-sync-status"></div>
     </div>
-    <div class="fl-sync-status" id="fl-sync-status"></div>
-    <button type="button" class="fl-clear-history-btn" id="fl-signout-btn">Sign out</button>
+    <button type="button" class="fl-icon-btn" id="fl-signout-btn">Sign out</button>
   </div>
 
   <section class="fl-profile-metrics">
     <h2>Body Metrics</h2>
-    <label class="fl-profile-gender-row">Gender
+    <label class="fl-profile-gender-row"><span class="fl-metric-label">Gender</span>
       <span class="fl-profile-gender-opts">
         <label><input type="radio" name="fl-profile-gender" value="male" /> Male</label>
         <label><input type="radio" name="fl-profile-gender" value="female" checked /> Female</label>
       </span>
     </label>
-    <label>Age <input type="number" id="fl-profile-age" min="10" max="120" step="1" placeholder="—" /></label>
-    <label>Weight (kg) <input type="number" id="fl-profile-weight" min="20" max="300" step="0.1" placeholder="—" /></label>
-    <label>Height (cm) <input type="number" id="fl-profile-height" min="100" max="250" step="1" placeholder="—" /></label>
-    <label>Activity
+    <label><span class="fl-metric-label">Age</span><input type="number" id="fl-profile-age" min="10" max="120" step="1" placeholder="—" /></label>
+    <label><span class="fl-metric-label">Weight (kg)</span><input type="number" id="fl-profile-weight" min="20" max="300" step="0.1" placeholder="—" /></label>
+    <label><span class="fl-metric-label">Height (cm)</span><input type="number" id="fl-profile-height" min="100" max="250" step="1" placeholder="—" /></label>
+    <label><span class="fl-metric-label">Activity</span>
       <select id="fl-profile-activity">
-        <option value="sedentary">Sedentary</option>
-        <option value="light">Lightly active</option>
-        <option value="moderate">Moderate</option>
-        <option value="very">Very active</option>
-        <option value="extra">Extra active</option>
+        <option value="sedentary">Sedentary (desk / &lt; 1×/week)</option>
+        <option value="light">Light (1–3×/week)</option>
+        <option value="moderate">Moderate (3–5×/week)</option>
+        <option value="very">Very active (6–7×/week)</option>
+        <option value="extra">Extra active (daily intense / physical job)</option>
       </select>
     </label>
   </section>
@@ -233,14 +230,13 @@
       </table>
     </div>
     <div class="fl-targets-copy-row">
-      <label class="fl-copy-from-label">Copy from
-        <select id="fl-profile-copy-from">
-          <option value="normal">Normal</option>
-          <option value="diet">Diet</option>
-          <option value="high">High</option>
-        </select>
-      </label>
-      <button type="button" id="fl-save-custom" class="fl-log-btn fl-save-custom-btn">Save as Custom</button>
+      <span class="fl-copy-from-label">Custom Setting:</span>
+      <select id="fl-profile-copy-from">
+        <option value="normal">Normal</option>
+        <option value="diet">Diet</option>
+        <option value="high">High</option>
+      </select>
+      <button type="button" id="fl-save-custom" class="fl-log-btn fl-save-custom-btn">Save</button>
     </div>
     <p class="fl-tdee-source">TDEE uses Mifflin-St Jeor + activity factor. Sugar WHO ≤ 10% of kcal. Fiber IOM 25 g F · 38 g M.</p>
   </section>

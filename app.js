@@ -732,8 +732,7 @@ const els = {
   gymClearDay: $('#fl-gym-clear-day'),
   gymExportBtn: $('#fl-gym-export-btn'),
   gymFilters: $('#fl-gym-filters'),
-  profileOut: $('#fl-profile-out'),
-  profileIn: $('#fl-profile-in'),
+  accountBar: $('#fl-account-bar'),
   profileImg: $('#fl-profile-img'),
   profileName: $('#fl-profile-name'),
   profileEmail: $('#fl-profile-email'),
@@ -2324,20 +2323,20 @@ async function syncFromFirestore() {
 
 function updateProfileUI() {
   if (currentUser) {
-    els.profileOut.hidden = true;
-    els.profileIn.hidden = false;
+    els.signinBtn.hidden = true;
+    if (els.headerUser) { els.headerUser.textContent = currentUser.displayName || ''; els.headerUser.hidden = false; }
+    if (els.accountBar) els.accountBar.hidden = false;
     els.profileImg.src = currentUser.photoURL || '';
-    els.profileName.textContent = currentUser.displayName || 'No Name';
-    els.profileEmail.textContent = currentUser.email || 'No Email';
-    if (els.headerUser) els.headerUser.textContent = currentUser.displayName || '';
+    els.profileName.textContent = currentUser.displayName || '';
+    els.profileEmail.textContent = currentUser.email || '';
   } else {
-    els.profileOut.hidden = false;
-    els.profileIn.hidden = true;
+    els.signinBtn.hidden = false;
+    if (els.headerUser) { els.headerUser.textContent = ''; els.headerUser.hidden = true; }
+    if (els.accountBar) els.accountBar.hidden = true;
     els.profileImg.src = '';
     els.profileName.textContent = '';
     els.profileEmail.textContent = '';
     els.syncStatus.textContent = '';
-    if (els.headerUser) els.headerUser.textContent = '';
   }
   loadProfileIntoUI();
 }

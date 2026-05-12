@@ -943,40 +943,44 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   .fl-row-del-btn:hover { background: #3f1d1d; }
 }
 
-/* Profile Panel */
-.fl-profile-card {
+/* Header auth widget */
+.fl-header-auth {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
+  gap: 8px;
+}
+
+/* Compact account bar (Profile tab, signed-in only) */
+.fl-account-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
   background: var(--fl-bg-subtle);
   border-radius: var(--fl-radius);
   border: 1px solid var(--fl-border);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
-#fl-profile-img {
-  width: 64px;
-  height: 64px;
+.fl-account-avatar {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--fl-border);
   object-fit: cover;
+  flex-shrink: 0;
 }
-.fl-profile-info {
+.fl-account-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
 }
-.fl-profile-info strong {
-  font-size: 18px;
-}
-.fl-profile-info span {
-  font-size: 14px;
-  color: var(--fl-muted);
-}
+.fl-account-info strong { font-size: 13px; }
+.fl-account-info span { font-size: 12px; color: var(--fl-muted); }
 .fl-sync-status {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--fl-muted);
-  margin-bottom: 16px;
 }
 
 /* Body Metrics / BMI·BMR·TDEE / Targets sections */
@@ -999,8 +1003,12 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 6px 0;
+  margin: 5px 0;
   font-size: 13px;
+}
+.fl-metric-label {
+  min-width: 88px;
+  flex-shrink: 0;
 }
 .fl-profile-gender-row { align-items: center; }
 .fl-profile-gender-opts {
