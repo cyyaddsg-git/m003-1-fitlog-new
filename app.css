@@ -941,44 +941,94 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   .fl-row-del-btn:hover { background: #3f1d1d; }
 }
 
-/* Header auth widget */
+/* Welcome page (signed-out state) */
+.fl-welcome {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+.fl-welcome-card {
+  max-width: 360px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--fl-border);
+  border-radius: 12px;
+  background: var(--fl-bg-subtle);
+}
+.fl-welcome-card h2 { margin: 0; font-size: 22px; }
+.fl-welcome-card p  { margin: 0; color: var(--fl-muted); }
+.fl-welcome-card small { color: var(--fl-muted); font-size: 11px; }
+.fl-google-signin-btn {
+  background: var(--fl-accent);
+  color: var(--fl-accent-fg);
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: center;
+}
+.fl-google-signin-btn:hover { filter: brightness(1.05); }
+
+/* Header auth (signed-in state): avatar+name button + sign-out */
 .fl-header-auth {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
-
-/* Compact account bar (Profile tab, signed-in only) */
-.fl-account-bar {
+.fl-header-account {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: var(--fl-bg-subtle);
-  border-radius: var(--fl-radius);
-  border: 1px solid var(--fl-border);
-  margin-bottom: 12px;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--fl-fg);
+  min-width: 0;
+  max-width: 100%;
 }
-.fl-account-avatar {
-  width: 32px;
-  height: 32px;
+.fl-header-account:hover,
+.fl-header-account:focus-visible {
+  background: var(--fl-bg-subtle);
+  border-color: var(--fl-border);
+}
+.fl-header-avatar {
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--fl-border);
   object-fit: cover;
   flex-shrink: 0;
 }
-.fl-account-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  flex: 1;
-  min-width: 0;
+.fl-header-name {
+  font-size: 13px;
+  font-weight: 500;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.fl-account-info strong { font-size: 13px; }
-.fl-account-info span { font-size: 12px; color: var(--fl-muted); }
-.fl-sync-status {
-  font-size: 11px;
+@media (min-width: 600px) {
+  .fl-header-name { max-width: 200px; }
+}
+
+/* Sync status — top of Profile page, centered + italic */
+.fl-profile-sync {
+  text-align: center;
+  font-style: italic;
+  font-size: 12px;
   color: var(--fl-muted);
+  margin: 4px 0 12px;
 }
 
 /* Body Metrics / BMI·BMR·TDEE / Targets sections */
@@ -1076,16 +1126,6 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   font-size: 11px;
   color: var(--fl-muted);
   margin: 8px 0 0;
-}
-
-/* App header user display */
-.fl-header-user {
-  font-size: 13px;
-  color: var(--fl-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 160px;
 }
 
 /* Settings button inside FoodLog Daily Log header */

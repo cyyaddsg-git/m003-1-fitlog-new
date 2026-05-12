@@ -7,7 +7,6 @@
 // ============ Constants ============
 
 const STORAGE_PREFIX = 'm003_1';
-const KEY_API = `${STORAGE_PREFIX}_apiKey`;
 const KEY_MODEL = `${STORAGE_PREFIX}_model`;
 const KEY_PROMPT = `${STORAGE_PREFIX}_systemPrompt`;
 const KEY_PROMPT_VERSION = `${STORAGE_PREFIX}_systemPromptVersion`;
@@ -27,8 +26,7 @@ const DEFAULT_MODEL = 'gemini-3-flash-preview';
 // gemini-2.0-flash is last because some accounts have free_tier limit=0 on it.
 const FALLBACK_PRIORITY = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 
-const GEMINI_URL = (model, apiKey) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+const GEMINI_PROXY_URL = '/api/gemini';
 
 const COLS = ['item', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
 
@@ -274,14 +272,12 @@ function loadSettings() {
   }
 
   return {
-    apiKey: safeLS.get(KEY_API) || '',
     model: SUPPORTED_MODELS.includes(safeLS.get(KEY_MODEL)) ? safeLS.get(KEY_MODEL) : DEFAULT_MODEL,
     systemPrompt: safeLS.get(KEY_PROMPT) ?? DEFAULT_SYSTEM_PROMPT,
   };
 }
 
 function saveSettings(s) {
-  safeLS.set(KEY_API, s.apiKey || '');
   safeLS.set(KEY_MODEL, SUPPORTED_MODELS.includes(s.model) ? s.model : DEFAULT_MODEL);
   safeLS.set(KEY_PROMPT, s.systemPrompt ?? '');
   safeLS.set(KEY_PROMPT_VERSION, SYSTEM_PROMPT_VERSION);
@@ -427,8 +423,13 @@ function $(sel) { return document.querySelector(sel); }
 
 // ============ Gemini call ============
 
-async function callGemini({ apiKey, model, systemPrompt, input }) {
-  const url = GEMINI_URL(model, apiKey);
+async function callGemini({ model, systemPrompt, input }) {
+  if (!currentUser) {
+    const e = new Error('Sign in required.');
+    e.status = 401;
+    throw e;
+  }
+  const token = await currentUser.getIdToken();
   const body = {
     contents: [{ role: 'user', parts: [{ text: input }] }],
     generationConfig: {
@@ -439,10 +440,13 @@ async function callGemini({ apiKey, model, systemPrompt, input }) {
   if (systemPrompt && systemPrompt.trim()) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] };
   }
-  const res = await fetch(url, {
+  const res = await fetch(GEMINI_PROXY_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ model, body }),
   });
   if (!res.ok) {
     let errBody;
@@ -689,11 +693,18 @@ let gymLocked = false; // when true, gym tables render read-only
 // ============ DOM refs ============
 
 const els = {
-  headerUser: $('#fl-header-user'),
+  welcome: $('#fl-welcome'),
+  welcomeSigninBtn: $('#fl-welcome-signin-btn'),
+  tabsNav: $('#fl-tabs-nav'),
+  main: $('#fl-main'),
+  headerAuth: $('#fl-header-auth'),
+  headerAccount: $('#fl-header-account'),
+  headerAvatar: $('#fl-header-avatar'),
+  headerName: $('#fl-header-name'),
+  profileSync: $('#fl-profile-sync'),
   settingsBtn: $('#fl-settings-btn'),
   settingsModal: $('#fl-settings-modal'),
   settingsClose: $('#fl-settings-close'),
-  setApikey: $('#fl-set-apikey'),
   setModel: $('#fl-set-model'),
   setPrompt: $('#fl-set-prompt'),
   setReset: $('#fl-set-reset'),
@@ -732,13 +743,7 @@ const els = {
   gymClearDay: $('#fl-gym-clear-day'),
   gymExportBtn: $('#fl-gym-export-btn'),
   gymFilters: $('#fl-gym-filters'),
-  accountBar: $('#fl-account-bar'),
-  profileImg: $('#fl-profile-img'),
-  profileName: $('#fl-profile-name'),
-  profileEmail: $('#fl-profile-email'),
-  signinBtn: $('#fl-signin-btn'),
   signoutBtn: $('#fl-signout-btn'),
-  syncStatus: $('#fl-sync-status'),
   profileAge: $('#fl-profile-age'),
   profileWeight: $('#fl-profile-weight'),
   profileHeight: $('#fl-profile-height'),
@@ -785,14 +790,12 @@ function showTab(name) {
 // ============ Settings modal ============
 
 function openSettings() {
-  els.setApikey.value = state.apiKey;
   els.setModel.value = state.model;
   if (els.setPrompt) els.setPrompt.value = state.systemPrompt;
   els.settingsModal.hidden = false;
 }
 function closeSettings() {
   state = {
-    apiKey: els.setApikey.value.trim(),
     model: els.setModel.value || DEFAULT_MODEL,
     systemPrompt: els.setPrompt ? els.setPrompt.value : state.systemPrompt,
   };
@@ -805,26 +808,28 @@ if (els.setReset && els.setPrompt) {
   els.setReset.addEventListener('click', () => { els.setPrompt.value = DEFAULT_SYSTEM_PROMPT; });
 }
 
-// Minimal probe to isolate "is the key working at all?" from prompt complexity.
+// Minimal probe to isolate "is the proxy + shared key working?" from prompt complexity.
 async function testConnection() {
   els.testBtn.disabled = true;
   els.testOutput.hidden = false;
-  const apiKey = els.setApikey.value.trim();
   const model = els.setModel.value || DEFAULT_MODEL;
-  if (!apiKey) {
-    els.testOutput.textContent = 'Paste an API key first.';
+  if (!currentUser) {
+    els.testOutput.textContent = 'Not signed in — sign in first.';
     els.testBtn.disabled = false;
     return;
   }
-  els.testOutput.textContent = `Probing ${model}…`;
-  const url = GEMINI_URL(model, apiKey);
+  els.testOutput.textContent = `Probing ${model} via /api/gemini…`;
   const body = { contents: [{ role: 'user', parts: [{ text: 'Reply with the single word: pong' }] }] };
   let res, json, text;
   try {
-    res = await fetch(url, {
+    const token = await currentUser.getIdToken();
+    res = await fetch(GEMINI_PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ model, body }),
     });
     text = await res.text();
     try { json = JSON.parse(text); } catch { json = null; }
@@ -835,7 +840,7 @@ async function testConnection() {
     return;
   }
   const lines = [];
-  lines.push(`Endpoint: POST ${url.replace(/key=[^&]+/, 'key=…' + apiKey.slice(-4))}`);
+  lines.push(`Endpoint: POST ${GEMINI_PROXY_URL} (model=${model})`);
   lines.push(`Status: ${res.status} ${res.statusText}`);
   if (json?.error) {
     lines.push('');
@@ -851,7 +856,7 @@ async function testConnection() {
     lines.push('');
     lines.push(`Reply: ${reply.trim()}`);
     lines.push('');
-    lines.push('✓ Key works. If meal-logging Send still fails, the issue is prompt-specific (try shorter input, different model, or check the raw output box).');
+    lines.push('✓ Proxy works. If meal-logging Send still fails, the issue is prompt-specific (try shorter input, different model, or check the raw output box).');
   } else {
     lines.push('');
     lines.push('Raw response body:');
@@ -874,8 +879,8 @@ async function send() {
   const input = els.input.value.trim();
   if (!input) { showValidation('Type a meal description first.'); return; }
   if (input.length > 2000) { showValidation('Keep under 2000 characters.'); return; }
-  if (!state.apiKey) {
-    setStatus('No Gemini API key — open Settings to add one.', 'error');
+  if (!currentUser) {
+    setStatus('Sign in to log meals with AI.', 'error');
     return;
   }
 
@@ -901,7 +906,6 @@ async function send() {
       if (i > 0) setStatus(`${chain[0]} overloaded — falling back to ${model}…`, 'info');
       try {
         const result = await callGeminiWithRetry({
-          apiKey: state.apiKey,
           model,
           systemPrompt: promptWithContext,
           input,
@@ -2226,10 +2230,10 @@ async function signInWithGoogle() {
     setTimeout(() => setStatus(null), 3000);
   } catch (e) {
     console.error('[fitlog] sign-in error', e);
-    const msg = e.code === 'auth/popup-closed-by-user' 
-      ? 'Sign-in window closed before completion.'
-      : 'Sign-in failed: ' + e.message;
+    if (e.code === 'auth/popup-closed-by-user') return; // user cancelled — no alert
+    const msg = 'Sign-in failed: ' + e.message;
     setStatus(msg, 'error');
+    if (!currentUser) alert(msg); // Welcome page is shown — #fl-status is hidden
   }
 }
 
@@ -2243,9 +2247,15 @@ async function signOut() {
 }
 
 function setSyncStatus(msg) {
-  if (!els.syncStatus) return;
+  if (!els.profileSync) return;
+  if (!msg || !currentUser) {
+    els.profileSync.hidden = true;
+    els.profileSync.textContent = '';
+    return;
+  }
   const now = new Date().toLocaleTimeString();
-  els.syncStatus.textContent = msg ? `${msg} (${now})` : '';
+  els.profileSync.textContent = `${msg} (${now})`;
+  els.profileSync.hidden = false;
 }
 
 async function syncToFirestore(category, data) {
@@ -2298,12 +2308,8 @@ async function syncFromFirestore() {
       }
       console.info(`[fitlog] sync: processing ${category}`);
       if (category === 'settings') {
-        const local = loadSettings();
-        if (data.apiKey && !local.apiKey) {
-          state = data;
-          saveSettings(data);
-          hasChanges = true;
-        }
+        // settings (model, system prompt) — local wins; nothing to restore from cloud here.
+        // Legacy `apiKey` field in old docs is ignored (BYOK removed in Phase 3.4).
       } else if (category === 'library') {
         const local = loadLibrary();
         if (data.length > local.length) { saveLibrary(data); hasChanges = true; }
@@ -2343,22 +2349,30 @@ async function syncFromFirestore() {
 
 function updateProfileUI() {
   if (currentUser) {
-    els.signinBtn.hidden = true;
-    if (els.headerUser) { els.headerUser.textContent = currentUser.displayName || ''; els.headerUser.hidden = false; }
-    if (els.accountBar) els.accountBar.hidden = false;
-    els.profileImg.src = currentUser.photoURL || '';
-    els.profileName.textContent = currentUser.displayName || '';
-    els.profileEmail.textContent = currentUser.email || '';
+    els.welcome.hidden = true;
+    els.tabsNav.hidden = false;
+    els.main.hidden = false;
+    els.headerAuth.hidden = false;
+    els.headerAvatar.src = currentUser.photoURL || '';
+    els.headerName.textContent = currentUser.displayName || currentUser.email || 'Account';
   } else {
-    els.signinBtn.hidden = false;
-    if (els.headerUser) { els.headerUser.textContent = ''; els.headerUser.hidden = true; }
-    if (els.accountBar) els.accountBar.hidden = true;
-    els.profileImg.src = '';
-    els.profileName.textContent = '';
-    els.profileEmail.textContent = '';
-    els.syncStatus.textContent = '';
+    els.welcome.hidden = false;
+    els.tabsNav.hidden = true;
+    els.main.hidden = true;
+    els.headerAuth.hidden = true;
+    els.headerAvatar.src = '';
+    els.headerName.textContent = '';
+    if (els.profileSync) {
+      els.profileSync.hidden = true;
+      els.profileSync.textContent = '';
+    }
   }
   loadProfileIntoUI();
+}
+
+function isProfileEmpty() {
+  const p = profileState || {};
+  return !(p.age && p.weight && p.height);
 }
 
 // ============ Profile Metrics ============
@@ -2516,22 +2530,25 @@ if (els.dailyTargetMode) {
   });
 }
 
-auth.onAuthStateChanged((user) => {
+auth.onAuthStateChanged(async (user) => {
   const changed = (currentUser?.uid !== user?.uid);
   currentUser = user;
   console.info('[fitlog] auth state', user ? `signed-in: ${user.uid}` : 'signed-out');
   updateProfileUI();
-  
+
   if (changed && user) {
-    syncFromFirestore();
+    await syncFromFirestore();
+    showTab(isProfileEmpty() ? 'profile' : 'logging');
   }
 });
 
-els.signinBtn.addEventListener('click', signInWithGoogle);
+els.welcomeSigninBtn.addEventListener('click', signInWithGoogle);
+els.headerAccount.addEventListener('click', () => showTab('profile'));
 els.signoutBtn.addEventListener('click', signOut);
 
 // ============ Init ============
 
+// Initial tab state — actual visibility is governed by updateProfileUI based on auth.
 showTab('logging');
 renderDaily();
 renderHistory();

@@ -13,20 +13,31 @@
 
 <header class="fl-app-header">
   <h1>FitLog</h1>
-  <div class="fl-header-auth">
-    <button type="button" class="fl-icon-btn" id="fl-signin-btn">Sign in</button>
-    <span id="fl-header-user" class="fl-header-user" hidden></span>
+  <div class="fl-header-auth" id="fl-header-auth" hidden>
+    <button type="button" class="fl-header-account" id="fl-header-account" aria-label="Open profile">
+      <img id="fl-header-avatar" class="fl-header-avatar" alt="" />
+      <span class="fl-header-name" id="fl-header-name"></span>
+    </button>
+    <button type="button" class="fl-icon-btn" id="fl-signout-btn">Sign out</button>
   </div>
 </header>
 
-<nav class="fl-tabs" role="tablist">
+<section class="fl-welcome" id="fl-welcome" hidden>
+  <div class="fl-welcome-card">
+    <h2>Welcome to FitLog</h2>
+    <p>AI-assisted meal logging, gym tracking, and TDEE targets — synced to your Google account.</p>
+    <button type="button" class="fl-google-signin-btn" id="fl-welcome-signin-btn">Sign in with Google</button>
+    <small>Sign-in is required to use FitLog.</small>
+  </div>
+</section>
+
+<nav class="fl-tabs" id="fl-tabs-nav" role="tablist" hidden>
   <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true">FoodLog</button>
   <button type="button" class="fl-tab" data-tab="library" role="tab" aria-selected="false">FoodLibrary</button>
   <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false">GymLog</button>
-  <button type="button" class="fl-tab" data-tab="profile" role="tab" aria-selected="false">Profile</button>
 </nav>
 
-<main>
+<main id="fl-main" hidden>
 
 <!-- ============ FoodLog tab ============ -->
 <section class="fl-panel" data-panel="logging" role="tabpanel">
@@ -162,19 +173,10 @@
 
 </section>
 
-<!-- ============ Profile tab ============ -->
+<!-- ============ Profile page (reachable only via header avatar) ============ -->
 <section class="fl-panel" data-panel="profile" role="tabpanel" hidden>
 
-  <!-- Compact account bar — shown only when signed in -->
-  <div class="fl-account-bar" id="fl-account-bar" hidden>
-    <img id="fl-profile-img" src="" alt="" class="fl-account-avatar" />
-    <div class="fl-account-info">
-      <strong id="fl-profile-name"></strong>
-      <span id="fl-profile-email"></span>
-      <div class="fl-sync-status" id="fl-sync-status"></div>
-    </div>
-    <button type="button" class="fl-icon-btn" id="fl-signout-btn">Sign out</button>
-  </div>
+  <p class="fl-profile-sync" id="fl-profile-sync" hidden></p>
 
   <section class="fl-profile-metrics">
     <h2>Body Metrics</h2>
@@ -248,17 +250,13 @@
 <footer class="fl-app-footer">
   <span>Powered by</span>
   <span>Koala</span>
-  <span>v1.3.3</span>
+  <span>v1.4.0</span>
 </footer>
 
 <!-- ============ Settings modal ============ -->
 <div class="fl-modal" id="fl-settings-modal" hidden>
   <div class="fl-modal-card">
     <h3>Settings</h3>
-    <label>Gemini API key
-      <input type="password" id="fl-set-apikey" autocomplete="off" spellcheck="false" />
-      <small>Stored only on this device. Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</small>
-    </label>
     <label>Model
       <select id="fl-set-model">
         <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
