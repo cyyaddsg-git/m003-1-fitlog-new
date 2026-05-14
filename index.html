@@ -12,8 +12,10 @@
 <body>
 
 <header class="fl-app-header">
-  <h1>FitLog</h1>
+  <button type="button" class="fl-brand-logo" id="fl-brand-logo">Fitlog</button>
   <div class="fl-header-auth" id="fl-header-auth" hidden>
+    <button type="button" class="fl-theme-mini-btn" id="fl-header-theme-toggle" aria-label="Toggle light mode">💡</button>
+    <button type="button" class="fl-icon-btn fl-header-settings-btn" id="fl-settings-btn">Settings</button>
     <button type="button" class="fl-header-account" id="fl-header-account" aria-label="Open profile">
       <img id="fl-header-avatar" class="fl-header-avatar" alt="" />
       <span class="fl-header-name" id="fl-header-name"></span>
@@ -21,11 +23,12 @@
     <button type="button" class="fl-icon-btn" id="fl-signout-btn">Sign out</button>
   </div>
 </header>
+<div class="fl-brand-motto" id="fl-brand-motto" hidden>be the koala you like to be.</div>
 
 <section class="fl-welcome" id="fl-welcome" hidden>
   <div class="fl-welcome-card">
     <h2>Welcome to FitLog</h2>
-    <p>AI-assisted meal logging, gym tracking, and TDEE targets — synced to your Google account.</p>
+    <p>be the koala you like to be.</p>
     <button type="button" class="fl-google-signin-btn" id="fl-welcome-signin-btn">Sign in with Google</button>
     <small>Sign-in is required to use FitLog.</small>
   </div>
@@ -33,7 +36,6 @@
 
 <nav class="fl-tabs" id="fl-tabs-nav" role="tablist" hidden>
   <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true">FoodLog</button>
-  <button type="button" class="fl-tab" data-tab="library" role="tab" aria-selected="false">FoodLibrary</button>
   <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false">GymLog</button>
 </nav>
 
@@ -42,139 +44,135 @@
 <!-- ============ FoodLog tab ============ -->
 <section class="fl-panel" data-panel="logging" role="tabpanel">
 
-  <!-- Daily Log header at top -->
-  <header class="fl-daily-head">
-    <div class="fl-daily-head-top">
-      <h2>Daily Log</h2>
-      <button type="button" class="fl-icon-btn fl-settings-inline-btn" id="fl-settings-btn">Settings</button>
-    </div>
-    <div class="fl-daily-head-selects">
-      <select class="fl-daily-date" id="fl-daily-date" aria-label="Daily log date"></select>
-      <select id="fl-daily-target-mode" aria-label="Target mode">
-        <option value="normal">Target: Normal</option>
-        <option value="high">Target: High</option>
-        <option value="diet">Target: Diet</option>
-        <option value="custom">Target: Custom</option>
-        <option value="none">Target: None</option>
-      </select>
-    </div>
+  <header class="fl-food-hero">
+    <select id="fl-daily-target-mode" class="fl-kcal-target-select" aria-label="Target mode">
+      <option value="normal">🎯 Normal</option>
+      <option value="high">🎯 High</option>
+      <option value="diet">🎯 Diet</option>
+      <option value="custom">🎯 Custom</option>
+      <option value="none">🎯 None</option>
+    </select>
+    <section class="fl-nutrition-board" id="fl-nutrition-board" aria-label="Daily nutrition summary"></section>
   </header>
 
-  <div class="fl-input-row">
-    <textarea id="fl-input" rows="3" placeholder="Describe a meal in any language…"></textarea>
-    <button type="button" class="fl-send-btn" id="fl-send-btn">Send</button>
-  </div>
+  <section class="fl-ai-card" aria-label="AI food estimate">
+    <div class="fl-log-head">
+      <div class="fl-log-title">
+        <h2>KOALA TABLE</h2>
+        <select class="fl-daily-date" id="fl-daily-date" aria-label="Daily log date"></select>
+      </div>
+      <div class="fl-koala-mode" role="group" aria-label="Koala logging mode">
+        <button type="button" class="fl-mode-btn fl-active" id="fl-mode-j" data-mode="j" aria-label="J Koala">J</button>
+        <button type="button" class="fl-mode-btn" id="fl-mode-p" data-mode="p" aria-label="P Koala">P</button>
+      </div>
+    </div>
+    <div class="fl-chat-composer">
+      <label class="fl-image-drop" data-upload-slot="0" title="Photo">
+        <input type="file" id="fl-image-0" accept="image/*" hidden />
+        <span class="fl-image-plus">+</span>
+        <span class="fl-image-hint">Photo</span>
+      </label>
+      <div class="fl-composer-input">
+        <textarea id="fl-input" rows="2" placeholder="Eat what lai?&#10;e.g. lunch is nasi lemak with ayam goreng, no skin, cham c kosong ..."></textarea>
+        <button type="button" class="fl-send-btn" id="fl-send-btn" aria-label="Estimate meal">🔎</button>
+      </div>
+    </div>
+  </section>
 
   <div class="fl-validation" id="fl-validation" hidden></div>
   <div class="fl-status" id="fl-status" hidden></div>
 
   <!-- Preview table (after Send) -->
   <section class="fl-preview" id="fl-preview" hidden>
-    <h2>Preview</h2>
+    <header class="fl-preview-head">
+      <h2>J KOALA AUDIT</h2>
+      <button type="button" class="fl-log-btn" id="fl-log-btn" aria-label="J OK">🌿</button>
+    </header>
     <div class="fl-table-wrap">
       <table class="fl-table" id="fl-preview-table"></table>
     </div>
     <ul class="fl-notes" id="fl-preview-notes" hidden></ul>
-
-    <div class="fl-log-row">
-      <span class="fl-log-label">Log as:</span>
-      <label><input type="radio" name="fl-meal" value="breakfast" checked /> Breakfast</label>
-      <label><input type="radio" name="fl-meal" value="lunch" /> Lunch</label>
-      <label><input type="radio" name="fl-meal" value="dinner" /> Dinner</label>
-      <label><input type="radio" name="fl-meal" value="snack" /> Snack</label>
-      <button type="button" class="fl-log-btn" id="fl-log-btn">Log Meal</button>
-    </div>
   </section>
 
   <!-- Daily Log table + actions -->
   <section class="fl-daily">
-    <div class="fl-table-wrap">
-      <table class="fl-table fl-daily-table" id="fl-daily-table"></table>
-    </div>
+    <div class="fl-meal-stack" id="fl-daily-table"></div>
     <div class="fl-daily-actions">
       <button type="button" class="fl-export-btn" id="fl-export-daily-btn">Export CSV</button>
-      <button type="button" class="fl-clear-day-btn" id="fl-clear-day-btn">Clear day</button>
+      <button type="button" class="fl-clear-day-btn" id="fl-clear-day-btn">Reset</button>
     </div>
-  </section>
-
-  <!-- Food History -->
-  <section class="fl-history">
-    <h2>Food History</h2>
-    <div class="fl-table-wrap">
-      <table class="fl-table fl-history-table" id="fl-history-table"></table>
-    </div>
-    <p class="fl-empty" id="fl-history-empty" hidden>No days logged yet — totals are saved automatically as you log meals.</p>
-    <div class="fl-history-actions">
-      <button type="button" class="fl-export-btn" id="fl-export-history-btn">Export CSV</button>
-      <button type="button" class="fl-clear-history-btn" id="fl-clear-history-btn">Clear history</button>
-    </div>
+    <a href="#userlibrary" class="fl-library-text-link fl-library-spaced-link" data-open-library>UserLibrary</a>
   </section>
 
 </section>
 
-<!-- ============ FoodLibrary tab ============ -->
+<!-- ============ Saved food data panel (hidden from navigation) ============ -->
 <section class="fl-panel" data-panel="library" role="tabpanel" hidden>
   <div class="fl-library-header">
-    <span class="fl-library-count" id="fl-library-count">0 items</span>
-    <button type="button" class="fl-library-clear" id="fl-library-clear">Clear user items</button>
+    <div>
+      <h2>UserLibrary</h2>
+      <span class="fl-library-count" id="fl-library-count">0 items</span>
+    </div>
+    <button type="button" class="fl-library-clear" id="fl-library-clear">Clear saved user items</button>
   </div>
   <div class="fl-table-wrap">
     <table class="fl-table" id="fl-library-table"></table>
   </div>
-  <p class="fl-empty" id="fl-library-empty" hidden>No FoodLibrary items yet — add some from FoodLog preview rows.</p>
+  <p class="fl-empty" id="fl-library-empty" hidden>No saved food items yet — add some from FoodLog preview rows.</p>
+  <section class="fl-library-gym">
+    <h3>Gym favourites</h3>
+    <div id="fl-gym-fav-list"></div>
+  </section>
 </section>
 
 <!-- ============ GymLog tab ============ -->
 <section class="fl-panel" data-panel="gym" role="tabpanel" hidden>
 
-  <!-- Daily Log header at top -->
-  <header class="fl-daily-head">
-    <h2>
-      <span>Daily Log</span>
-      <select class="fl-daily-date" id="fl-gym-date" aria-label="Daily gym log date"></select>
-    </h2>
-  </header>
+  <section class="fl-gym-summary" id="fl-gym-summary" aria-label="Workout summary"></section>
 
-  <!-- Activity picker + filter -->
-  <section class="fl-gym-entry">
-    <div class="fl-gym-pick-row">
-      <select id="fl-gym-activity" aria-label="Activity"></select>
-      <input type="text" id="fl-gym-custom-name" placeholder="Custom activity name" hidden />
-      <button type="button" class="fl-row-edit-btn" id="fl-gym-log-btn">Add</button>
-    </div>
-    <div class="fl-gym-filters" id="fl-gym-filters">
-      <span class="fl-gym-filter-label">Filter:</span>
-      <button type="button" class="fl-filter-pill fl-active" data-filter="all">All</button>
-      <button type="button" class="fl-filter-pill" data-filter="Push">Push</button>
-      <button type="button" class="fl-filter-pill" data-filter="Pull">Pull</button>
-      <button type="button" class="fl-filter-pill" data-filter="Upper">Upper</button>
-      <button type="button" class="fl-filter-pill" data-filter="Lower">Lower</button>
-      <button type="button" class="fl-filter-pill" data-filter="Cardio">Cardio</button>
-      <button type="button" class="fl-filter-pill" data-filter="Custom">Custom</button>
-    </div>
+  <section class="fl-gym-entry" hidden>
+    <select id="fl-gym-activity" aria-label="Activity"></select>
+    <input type="text" id="fl-gym-custom-name" placeholder="Custom activity name" hidden />
+    <button type="button" class="fl-row-edit-btn" id="fl-gym-log-btn">Add</button>
+    <div class="fl-gym-filters" id="fl-gym-filters"></div>
     <div class="fl-validation" id="fl-gym-validation" hidden></div>
   </section>
 
-  <!-- Daily activities (WEIGHT + CARDIO) + actions -->
   <section class="fl-gym-daily">
+    <header class="fl-gym-head">
+      <div class="fl-log-title">
+        <h2>KOALA GYM</h2>
+        <select class="fl-daily-date" id="fl-gym-date" aria-label="Daily gym log date"></select>
+        <select class="fl-daily-date" id="fl-gym-preset" aria-label="Gym favourite preset">
+          <option value="">Preset</option>
+        </select>
+      </div>
+      <div class="fl-gym-save-box">
+        <button type="button" class="fl-log-day-btn" id="fl-gym-lock-btn">🔒 Save</button>
+        <small id="fl-gym-saved-time">Not saved yet</small>
+      </div>
+    </header>
     <div class="fl-gym-section" id="fl-gym-table"></div>
     <div class="fl-daily-actions">
       <button type="button" class="fl-export-btn" id="fl-gym-export-btn">Export CSV</button>
-      <button type="button" class="fl-clear-day-btn" id="fl-gym-clear-day">Clear day</button>
-      <button type="button" class="fl-log-day-btn" id="fl-gym-lock-btn">🔒 Lock</button>
+      <button type="button" class="fl-clear-day-btn" id="fl-gym-clear-day">Reset</button>
+      <input type="text" class="fl-gym-fav-input" id="fl-gym-fav-name" maxlength="15" placeholder="fav name" list="fl-gym-fav-options" />
+      <datalist id="fl-gym-fav-options"></datalist>
+      <button type="button" class="fl-export-btn" id="fl-gym-save-fav">Save as fav</button>
     </div>
+    <small class="fl-gym-fav-note">Max 5 favourites.</small>
   </section>
 
-  <!-- Gym History placeholder -->
-  <section class="fl-gym-history">
-    <h2>Gym History</h2>
-    <p class="fl-empty">History view coming in a later phase.</p>
-  </section>
-
+  <section class="fl-gym-note-shell" id="fl-gym-note-shell"></section>
+  <a href="#userlibrary" class="fl-library-text-link fl-library-spaced-link" data-open-library>UserLibrary</a>
 </section>
 
 <!-- ============ Profile page (reachable only via header avatar) ============ -->
 <section class="fl-panel" data-panel="profile" role="tabpanel" hidden>
+
+  <header class="fl-profile-head">
+    <h2>Profile</h2>
+  </header>
 
   <p class="fl-profile-sync" id="fl-profile-sync" hidden></p>
 
@@ -198,6 +196,7 @@
         <option value="extra">Extra Active (daily/phys.)</option>
       </select>
     </label>
+    <button type="button" id="fl-profile-save-metrics" class="fl-log-btn fl-profile-save-btn">Save</button>
   </section>
 
   <section class="fl-profile-targets">
@@ -245,18 +244,32 @@
   </section>
 </section>
 
-</main>
+<!-- ============ Settings page (reachable via header Settings) ============ -->
+<section class="fl-panel" data-panel="settings" role="tabpanel" hidden>
+  <header class="fl-settings-head">
+    <h2>Settings</h2>
+    <p id="fl-settings-status" hidden></p>
+  </header>
 
-<footer class="fl-app-footer">
-  <span>Powered by</span>
-  <span>Koala</span>
-  <span>v1.4.0</span>
-</footer>
+  <section class="fl-settings-card">
+    <h3>Koala Mode</h3>
+    <div class="fl-settings-toggle" role="group" aria-label="Default Koala logging mode">
+      <button type="button" class="fl-setting-koala-btn" data-setting-koala-mode="j">J</button>
+      <button type="button" class="fl-setting-koala-btn" data-setting-koala-mode="p">P</button>
+    </div>
+    <small>J needs audit before logs; P logs immediately.</small>
+  </section>
 
-<!-- ============ Settings modal ============ -->
-<div class="fl-modal" id="fl-settings-modal" hidden>
-  <div class="fl-modal-card">
-    <h3>Settings</h3>
+  <section class="fl-settings-card">
+    <h3>Light mode</h3>
+    <div class="fl-settings-toggle" role="group" aria-label="Light mode">
+      <button type="button" class="fl-theme-btn" data-theme-option="dark">Off</button>
+      <button type="button" class="fl-theme-btn" data-theme-option="light">On</button>
+    </div>
+  </section>
+
+  <section class="fl-settings-card">
+    <h3>Gemini</h3>
     <label>Model
       <select id="fl-set-model">
         <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
@@ -264,15 +277,29 @@
         <option value="gemini-2.0-flash">gemini-2.0-flash</option>
       </select>
     </label>
+    <label>Gemini API key (BYOK)
+      <input type="password" id="fl-set-apikey" placeholder="AIza... leave blank to use host key" autocomplete="off" />
+    </label>
+    <small>When saved, FitLog uses your key directly from this browser. The key stays local and is not synced.</small>
     <div class="fl-test-row">
       <button type="button" class="fl-test-btn" id="fl-test-btn">Test connection</button>
       <pre class="fl-test-output" id="fl-test-output" hidden></pre>
     </div>
-    <div class="fl-modal-actions">
-      <button type="button" class="fl-modal-close" id="fl-settings-close">Done</button>
-    </div>
+  </section>
+
+  <div class="fl-settings-actions">
+    <button type="button" class="fl-modal-clear" id="fl-clear-apikey">Clear key</button>
+    <button type="button" class="fl-modal-close" id="fl-settings-close">Save Settings</button>
   </div>
-</div>
+</section>
+
+</main>
+
+<footer class="fl-app-footer">
+  <span>Powered by</span>
+  <span>Koala</span>
+  <span>v2.2.7</span>
+</footer>
 
 <script src="./app.js"></script>
 </body>

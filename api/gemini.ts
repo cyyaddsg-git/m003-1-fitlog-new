@@ -14,6 +14,14 @@ const ALLOWED_MODELS = new Set([
   'gemini-2.0-flash',
 ]);
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '4mb',
+    },
+  },
+};
+
 if (PROJECT_ID && !admin.apps.length) {
   // verifyIdToken needs only projectId; it fetches Google's public certs lazily.
   admin.initializeApp({ projectId: PROJECT_ID });

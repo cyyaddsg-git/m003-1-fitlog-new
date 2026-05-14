@@ -7,18 +7,29 @@
 // ============ Constants ============
 
 const STORAGE_PREFIX = 'm003_1';
+const KEY_APIKEY = `${STORAGE_PREFIX}_apiKey`;
 const KEY_MODEL = `${STORAGE_PREFIX}_model`;
 const KEY_PROMPT = `${STORAGE_PREFIX}_systemPrompt`;
 const KEY_PROMPT_VERSION = `${STORAGE_PREFIX}_systemPromptVersion`;
+const KEY_KOALA_MODE = `${STORAGE_PREFIX}_koalaMode`;
+const KEY_THEME = `${STORAGE_PREFIX}_theme`;
 const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_LIBRARY_SEED = `${STORAGE_PREFIX}_librarySeedVersion`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
 const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
 const KEY_GYM = `${STORAGE_PREFIX}_gymLog`;
+const KEY_GYM_FAVS = `${STORAGE_PREFIX}_gymFavorites`;
 const KEY_PROFILE = `${STORAGE_PREFIX}_profile`;
 
 const SUPPORTED_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
+const DEFAULT_KOALA_MODE = 'j';
+const DEFAULT_THEME = 'dark';
+const ICON_LEAF = '🌿';
+const ICON_SEARCH = '🔎';
+const ICON_DART = '🎯';
+const ICON_BULB = '💡';
+const ICON_DARK_BULB = '●';
 
 // Fallback preference order. When the selected primary model 5xx's, try these
 // in order (skipping the primary). gemini-3-flash-preview is preferred because
@@ -62,6 +73,17 @@ const FOOD_RESPONSE_SCHEMA = {
 const NUMERIC_COLS = ['kcal', 'p', 'f', 'c', 'su', 'fb'];
 const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
+const MEAL_HINTS = [
+  ['breakfast', 'Breakfast'],
+  ['brunch', 'Brunch'],
+  ['lnunch', 'Lunch'],
+  ['lunch', 'Lunch'],
+  ['dinner', 'Dinner'],
+  ['supper', 'Supper'],
+  ['teatime', 'Teatime'],
+  ['tea time', 'Teatime'],
+  ['snack', 'Snack'],
+];
 const DAILY_DATE_WINDOW_DAYS = 30;
 const GYM_ACTIVITIES = [
   { group: 'Push Upper', kind: 'weight', name: 'Bench Press - barbell/dumbbell (decline)' },
@@ -272,16 +294,31 @@ function loadSettings() {
   }
 
   return {
+    apiKey: safeLS.get(KEY_APIKEY) || '',
     model: SUPPORTED_MODELS.includes(safeLS.get(KEY_MODEL)) ? safeLS.get(KEY_MODEL) : DEFAULT_MODEL,
+    koalaMode: ['j', 'p'].includes(safeLS.get(KEY_KOALA_MODE)) ? safeLS.get(KEY_KOALA_MODE) : DEFAULT_KOALA_MODE,
+    theme: ['dark', 'light'].includes(safeLS.get(KEY_THEME)) ? safeLS.get(KEY_THEME) : DEFAULT_THEME,
     systemPrompt: safeLS.get(KEY_PROMPT) ?? DEFAULT_SYSTEM_PROMPT,
   };
 }
 
 function saveSettings(s) {
+  safeLS.set(KEY_APIKEY, String(s.apiKey || '').trim());
   safeLS.set(KEY_MODEL, SUPPORTED_MODELS.includes(s.model) ? s.model : DEFAULT_MODEL);
+  safeLS.set(KEY_KOALA_MODE, ['j', 'p'].includes(s.koalaMode) ? s.koalaMode : DEFAULT_KOALA_MODE);
+  safeLS.set(KEY_THEME, ['dark', 'light'].includes(s.theme) ? s.theme : DEFAULT_THEME);
   safeLS.set(KEY_PROMPT, s.systemPrompt ?? '');
   safeLS.set(KEY_PROMPT_VERSION, SYSTEM_PROMPT_VERSION);
-  syncToFirestore('settings', s);
+  syncToFirestore('settings', settingsCloudPayload(s));
+}
+
+function settingsCloudPayload(s) {
+  return {
+    model: SUPPORTED_MODELS.includes(s.model) ? s.model : DEFAULT_MODEL,
+    koalaMode: ['j', 'p'].includes(s.koalaMode) ? s.koalaMode : DEFAULT_KOALA_MODE,
+    theme: ['dark', 'light'].includes(s.theme) ? s.theme : DEFAULT_THEME,
+    systemPrompt: s.systemPrompt ?? '',
+  };
 }
 
 function parseCSVLine(line) {
@@ -378,6 +415,12 @@ function saveGym(g) {
   safeLS.setJSON(KEY_GYM, g);
   syncToFirestore('gymLog', g);
 }
+function loadGymFavs() { return safeLS.getJSON(KEY_GYM_FAVS, []); }
+function saveGymFavs(favs) {
+  const clean = (Array.isArray(favs) ? favs : []).slice(0, 5);
+  safeLS.setJSON(KEY_GYM_FAVS, clean);
+  syncToFirestore('gymFavorites', clean);
+}
 function loadProfile() {
   return safeLS.getJSON(KEY_PROFILE, {
     gender: 'female',
@@ -423,15 +466,18 @@ function $(sel) { return document.querySelector(sel); }
 
 // ============ Gemini call ============
 
-async function callGemini({ model, systemPrompt, input }) {
-  if (!currentUser) {
-    const e = new Error('Sign in required.');
-    e.status = 401;
-    throw e;
-  }
-  const token = await currentUser.getIdToken();
+function geminiEndpoint(model, apiKey) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+}
+
+function geminiRequestBody({ systemPrompt, input, images = [] }) {
+  const parts = [{ text: input }];
+  images.forEach((img) => {
+    if (!img || !img.mimeType || !img.data) return;
+    parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
+  });
   const body = {
-    contents: [{ role: 'user', parts: [{ text: input }] }],
+    contents: [{ role: 'user', parts }],
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: FOOD_RESPONSE_SCHEMA,
@@ -440,14 +486,34 @@ async function callGemini({ model, systemPrompt, input }) {
   if (systemPrompt && systemPrompt.trim()) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] };
   }
-  const res = await fetch(GEMINI_PROXY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ model, body }),
-  });
+  return body;
+}
+
+async function callGemini({ model, systemPrompt, input, images = [] }) {
+  if (!currentUser) {
+    const e = new Error('Sign in required.');
+    e.status = 401;
+    throw e;
+  }
+  const apiKey = String(state.apiKey || '').trim();
+  const body = geminiRequestBody({ systemPrompt, input, images });
+  const res = apiKey
+    ? await fetch(geminiEndpoint(model, apiKey), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    : await (async () => {
+        const token = await currentUser.getIdToken();
+        return fetch(GEMINI_PROXY_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ model, body }),
+        });
+      })();
   if (!res.ok) {
     let errBody;
     try { errBody = await res.json(); } catch { errBody = null; }
@@ -687,6 +753,8 @@ let profileState = loadProfile();
 let lastPreview = null; // { rows: [...], notes: [...] }
 let selectedDailyDate = todayISO();
 let selectedGymDate = todayISO();
+let foodImages = [null, null]; // ephemeral compressed images for the next AI estimate only
+let koalaMode = state.koalaMode || DEFAULT_KOALA_MODE; // j = preview-confirm, p = direct log
 let activeGymFilter = 'all'; // 'all' | 'Push' | 'Pull' | 'Upper' | 'Lower' | 'Cardio' | 'Custom'
 let gymLocked = false; // when true, gym tables render read-only
 
@@ -695,27 +763,38 @@ let gymLocked = false; // when true, gym tables render read-only
 const els = {
   welcome: $('#fl-welcome'),
   welcomeSigninBtn: $('#fl-welcome-signin-btn'),
+  brandLogo: $('#fl-brand-logo'),
+  brandMotto: $('#fl-brand-motto'),
   tabsNav: $('#fl-tabs-nav'),
   main: $('#fl-main'),
   headerAuth: $('#fl-header-auth'),
   headerAccount: $('#fl-header-account'),
+  headerThemeToggle: $('#fl-header-theme-toggle'),
   headerAvatar: $('#fl-header-avatar'),
   headerName: $('#fl-header-name'),
   profileSync: $('#fl-profile-sync'),
   settingsBtn: $('#fl-settings-btn'),
-  settingsModal: $('#fl-settings-modal'),
   settingsClose: $('#fl-settings-close'),
+  settingsStatus: $('#fl-settings-status'),
   setModel: $('#fl-set-model'),
+  setApiKey: $('#fl-set-apikey'),
+  clearApiKey: $('#fl-clear-apikey'),
   setPrompt: $('#fl-set-prompt'),
   setReset: $('#fl-set-reset'),
   testBtn: $('#fl-test-btn'),
   testOutput: $('#fl-test-output'),
+  settingKoalaButtons: Array.from(document.querySelectorAll('[data-setting-koala-mode]')),
+  themeButtons: Array.from(document.querySelectorAll('[data-theme-option]')),
   tabs: Array.from(document.querySelectorAll('.fl-tab')),
   panels: Array.from(document.querySelectorAll('.fl-panel')),
   input: $('#fl-input'),
   sendBtn: $('#fl-send-btn'),
+  modeButtons: Array.from(document.querySelectorAll('.fl-mode-btn')),
+  imageInputs: [$('#fl-image-0')],
+  imageDrops: Array.from(document.querySelectorAll('.fl-image-drop')),
   validation: $('#fl-validation'),
   status: $('#fl-status'),
+  nutritionBoard: $('#fl-nutrition-board'),
   preview: $('#fl-preview'),
   previewTable: $('#fl-preview-table'),
   previewNotes: $('#fl-preview-notes'),
@@ -739,15 +818,24 @@ const els = {
   gymLockBtn: $('#fl-gym-lock-btn'),
   gymValidation: $('#fl-gym-validation'),
   gymDate: $('#fl-gym-date'),
+  gymSummary: $('#fl-gym-summary'),
   gymTable: $('#fl-gym-table'),
+  gymSavedTime: $('#fl-gym-saved-time'),
+  gymNoteShell: $('#fl-gym-note-shell'),
   gymClearDay: $('#fl-gym-clear-day'),
   gymExportBtn: $('#fl-gym-export-btn'),
   gymFilters: $('#fl-gym-filters'),
+  gymPreset: $('#fl-gym-preset'),
+  gymFavName: $('#fl-gym-fav-name'),
+  gymFavOptions: $('#fl-gym-fav-options'),
+  gymSaveFav: $('#fl-gym-save-fav'),
+  gymFavList: $('#fl-gym-fav-list'),
   signoutBtn: $('#fl-signout-btn'),
   profileAge: $('#fl-profile-age'),
   profileWeight: $('#fl-profile-weight'),
   profileHeight: $('#fl-profile-height'),
   profileActivity: $('#fl-profile-activity'),
+  profileSaveMetrics: $('#fl-profile-save-metrics'),
   profileSummaryText: $('#fl-profile-summary-text'),
   profileCopyFrom: $('#fl-profile-copy-from'),
   profileSaveCustom: $('#fl-save-custom'),
@@ -758,6 +846,7 @@ const els = {
   customSu: $('#fl-custom-su'),
   customFb: $('#fl-custom-fb'),
   dailyTargetMode: $('#fl-daily-target-mode'),
+  libraryLinks: Array.from(document.querySelectorAll('[data-open-library]')),
 };
 
 // ============ UI helpers ============
@@ -769,43 +858,150 @@ function setStatus(msg, kind) {
   els.status.className = 'fl-status' + (kind === 'error' ? ' fl-status-error' : '');
 }
 
+function showBrandMotto() {
+  if (!els.brandMotto) return;
+  els.brandMotto.hidden = false;
+  els.brandMotto.classList.add('fl-show');
+  clearTimeout(showBrandMotto.timer);
+  showBrandMotto.timer = setTimeout(() => {
+    els.brandMotto.classList.remove('fl-show');
+    els.brandMotto.hidden = true;
+  }, 2400);
+}
+
 function showValidation(msg) {
   if (!msg) { els.validation.hidden = true; els.validation.textContent = ''; return; }
   els.validation.hidden = false;
   els.validation.textContent = msg;
 }
 
+function profileComplete() {
+  const p = profileState || {};
+  return !!(p.gender && p.age && p.weight && p.height && p.activityLevel);
+}
+
+function setSettingsStatus(msg) {
+  if (!els.settingsStatus) return;
+  if (!msg) {
+    els.settingsStatus.hidden = true;
+    els.settingsStatus.textContent = '';
+    return;
+  }
+  els.settingsStatus.hidden = false;
+  els.settingsStatus.textContent = msg;
+}
+
+function applyTheme(theme, persist = false) {
+  const next = theme === 'light' ? 'light' : 'dark';
+  document.body.dataset.theme = next;
+  if (els.headerThemeToggle) {
+    const nextMode = next === 'light' ? 'dark' : 'light';
+    els.headerThemeToggle.textContent = nextMode === 'light' ? ICON_BULB : ICON_DARK_BULB;
+    els.headerThemeToggle.setAttribute('aria-label', next === 'light' ? 'Switch to dark mode' : 'Switch to light mode');
+    els.headerThemeToggle.setAttribute('aria-pressed', next === 'light' ? 'true' : 'false');
+    els.headerThemeToggle.classList.toggle('fl-next-light', nextMode === 'light');
+    els.headerThemeToggle.classList.toggle('fl-next-dark', nextMode === 'dark');
+  }
+  els.themeButtons.forEach((btn) => {
+    const active = btn.dataset.themeOption === next;
+    btn.classList.toggle('fl-active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  if (persist) {
+    state = { ...state, theme: next };
+    saveSettings(state);
+    setSettingsStatus(`Theme saved: ${next}.`);
+  }
+}
+
+function applyKoalaMode(mode, persist = false) {
+  const next = mode === 'p' ? 'p' : 'j';
+  koalaMode = next;
+  state = { ...state, koalaMode: next };
+  els.modeButtons.forEach((btn) => {
+    const active = btn.dataset.mode === next;
+    btn.classList.toggle('fl-active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  els.settingKoalaButtons.forEach((btn) => {
+    const active = btn.dataset.settingKoalaMode === next;
+    btn.classList.toggle('fl-active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  if (els.sendBtn) {
+    els.sendBtn.textContent = next === 'p' ? ICON_LEAF : ICON_SEARCH;
+    els.sendBtn.setAttribute('aria-label', next === 'p' ? 'Log meal directly' : 'Audit meal estimate');
+    els.sendBtn.title = next === 'p' ? 'P Koala direct log' : 'J Koala audit';
+  }
+  if (els.logBtn) {
+    els.logBtn.textContent = ICON_LEAF;
+    els.logBtn.title = 'J OK';
+  }
+  if (persist) {
+    saveSettings(state);
+    setSettingsStatus(`${next.toUpperCase()} Koala saved.`);
+  }
+}
+
 function showTab(name) {
+  if (currentUser && !profileComplete() && !['profile', 'settings'].includes(name)) {
+    name = 'profile';
+    setSyncStatus('Save metrics to unlock FitLog');
+  }
   els.tabs.forEach((t) => {
     const active = t.dataset.tab === name;
     t.setAttribute('aria-selected', active ? 'true' : 'false');
     t.classList.toggle('fl-tab-active', active);
+    t.disabled = !!(currentUser && !profileComplete());
   });
   els.panels.forEach((p) => { p.hidden = p.dataset.panel !== name; });
   if (name === 'library') renderLibrary();
   if (name === 'gym') renderGym();
   if (name === 'profile') updateProfileUI();
+  if (name === 'settings') loadSettingsIntoUI();
 }
 
-// ============ Settings modal ============
+// ============ Settings page ============
+
+function loadSettingsIntoUI() {
+  if (els.setModel) els.setModel.value = state.model;
+  if (els.setApiKey) els.setApiKey.value = state.apiKey || '';
+  if (els.setPrompt) els.setPrompt.value = state.systemPrompt;
+  applyKoalaMode(state.koalaMode || DEFAULT_KOALA_MODE, false);
+  applyTheme(state.theme || DEFAULT_THEME, false);
+}
 
 function openSettings() {
-  els.setModel.value = state.model;
-  if (els.setPrompt) els.setPrompt.value = state.systemPrompt;
-  els.settingsModal.hidden = false;
+  showTab('settings');
 }
-function closeSettings() {
+
+function saveSettingsFromUI() {
   state = {
-    model: els.setModel.value || DEFAULT_MODEL,
+    apiKey: els.setApiKey ? els.setApiKey.value.trim() : state.apiKey,
+    model: els.setModel ? (els.setModel.value || DEFAULT_MODEL) : state.model,
+    koalaMode,
+    theme: state.theme || DEFAULT_THEME,
     systemPrompt: els.setPrompt ? els.setPrompt.value : state.systemPrompt,
   };
   saveSettings(state);
-  els.settingsModal.hidden = true;
+  applyKoalaMode(state.koalaMode, false);
+  applyTheme(state.theme, false);
+  setSettingsStatus('Settings saved.');
 }
-els.settingsBtn.addEventListener('click', openSettings);
-els.settingsClose.addEventListener('click', closeSettings);
+if (els.settingsBtn) els.settingsBtn.addEventListener('click', openSettings);
+if (els.settingsClose) els.settingsClose.addEventListener('click', saveSettingsFromUI);
 if (els.setReset && els.setPrompt) {
   els.setReset.addEventListener('click', () => { els.setPrompt.value = DEFAULT_SYSTEM_PROMPT; });
+}
+if (els.clearApiKey && els.setApiKey) {
+  els.clearApiKey.addEventListener('click', () => {
+    els.setApiKey.value = '';
+    state = { ...state, apiKey: '' };
+    saveSettings(state);
+    els.testOutput.hidden = false;
+    els.testOutput.textContent = 'BYOK cleared. Host key proxy will be used when configured.';
+    setSettingsStatus('BYOK cleared.');
+  });
 }
 
 // Minimal probe to isolate "is the proxy + shared key working?" from prompt complexity.
@@ -813,24 +1009,35 @@ async function testConnection() {
   els.testBtn.disabled = true;
   els.testOutput.hidden = false;
   const model = els.setModel.value || DEFAULT_MODEL;
+  const apiKey = els.setApiKey ? els.setApiKey.value.trim() : '';
   if (!currentUser) {
     els.testOutput.textContent = 'Not signed in — sign in first.';
     els.testBtn.disabled = false;
     return;
   }
-  els.testOutput.textContent = `Probing ${model} via /api/gemini…`;
+  els.testOutput.textContent = apiKey
+    ? `Probing ${model} with BYOK direct…`
+    : `Probing ${model} via /api/gemini…`;
   const body = { contents: [{ role: 'user', parts: [{ text: 'Reply with the single word: pong' }] }] };
   let res, json, text;
   try {
-    const token = await currentUser.getIdToken();
-    res = await fetch(GEMINI_PROXY_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ model, body }),
-    });
+    if (apiKey) {
+      res = await fetch(geminiEndpoint(model, apiKey), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } else {
+      const token = await currentUser.getIdToken();
+      res = await fetch(GEMINI_PROXY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ model, body }),
+      });
+    }
     text = await res.text();
     try { json = JSON.parse(text); } catch { json = null; }
   } catch (netErr) {
@@ -840,7 +1047,9 @@ async function testConnection() {
     return;
   }
   const lines = [];
-  lines.push(`Endpoint: POST ${GEMINI_PROXY_URL} (model=${model})`);
+  lines.push(apiKey
+    ? `Endpoint: Google direct BYOK (model=${model})`
+    : `Endpoint: POST ${GEMINI_PROXY_URL} (model=${model})`);
   lines.push(`Status: ${res.status} ${res.statusText}`);
   if (json?.error) {
     lines.push('');
@@ -871,13 +1080,157 @@ els.testBtn.addEventListener('click', testConnection);
 
 els.tabs.forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
 
+// ============ Ephemeral image uploads ============
+
+const IMAGE_MAX_EDGE = 1024;
+const IMAGE_QUALITY = 0.72;
+const IMAGE_TARGET_BYTES = 750 * 1024;
+
+function bytesLabel(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Could not read image.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function imageElementFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not load image.'));
+    };
+    img.src = url;
+  });
+}
+
+async function compressFoodImage(file) {
+  if (!file || !file.type.startsWith('image/')) throw new Error('Choose an image file.');
+  const img = await imageElementFromFile(file);
+  const scale = Math.min(1, IMAGE_MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+  const width = Math.max(1, Math.round(img.naturalWidth * scale));
+  const height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, width, height);
+  const mimeType = file.type === 'image/png' ? 'image/jpeg' : 'image/jpeg';
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, mimeType, IMAGE_QUALITY));
+  if (!blob) throw new Error('Could not compress image.');
+  const dataUrl = await blobToDataURL(blob);
+  const data = dataUrl.split(',')[1] || '';
+  return {
+    name: file.name || 'image',
+    mimeType,
+    data,
+    previewUrl: dataUrl,
+    bytes: blob.size,
+    width,
+    height,
+  };
+}
+
+function renderFoodImageSlot(index) {
+  const drop = els.imageDrops[0];
+  const images = foodImages.filter(Boolean);
+  if (!drop) return;
+  drop.classList.toggle('fl-has-image', !!images.length);
+  const input = els.imageInputs[0];
+  drop.innerHTML = '';
+  if (input) drop.appendChild(input);
+  if (!images.length) {
+    const plus = document.createElement('span');
+    plus.className = 'fl-image-plus';
+    plus.textContent = '+';
+    const hint = document.createElement('span');
+    hint.className = 'fl-image-hint';
+    hint.textContent = 'Photo';
+    drop.title = 'Photo';
+    drop.append(plus, hint);
+    return;
+  }
+  drop.title = 'Photo';
+  const thumbs = document.createElement('span');
+  thumbs.className = 'fl-image-thumbs';
+  images.slice(0, 1).forEach((image) => {
+    const img = document.createElement('img');
+    img.src = image.previewUrl;
+    img.alt = '';
+    thumbs.appendChild(img);
+  });
+  const meta = document.createElement('span');
+  meta.className = 'fl-image-meta';
+  meta.textContent = '1';
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'fl-image-remove';
+  remove.textContent = '×';
+  remove.title = 'Remove photo';
+  remove.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    foodImages = [null, null];
+    if (input) input.value = '';
+    renderFoodImageSlot(0);
+  });
+  drop.append(thumbs, meta, remove);
+}
+
+function clearFoodImages() {
+  foodImages = [null, null];
+  els.imageInputs.forEach((input) => { if (input) input.value = ''; });
+  renderFoodImageSlot(0);
+}
+
+els.imageInputs.forEach((input, idx) => {
+  if (!input) return;
+  input.addEventListener('change', async () => {
+    const files = Array.from(input.files || []).filter((file) => /^image\//i.test(file.type)).slice(0, 1);
+    if (!files.length) return;
+    showValidation(null);
+    setStatus('Compressing image…', 'info');
+    try {
+      const compressed = [];
+      for (const file of files) compressed.push(await compressFoodImage(file));
+      foodImages = [compressed[0] || null, null];
+      renderFoodImageSlot(0);
+      const largest = compressed.reduce((max, img) => Math.max(max, img.bytes), 0);
+      if (largest > IMAGE_TARGET_BYTES) {
+        setStatus(`Photo compressed. Try a smaller crop if the request fails.`, 'error');
+      } else {
+        setStatus('Photo ready.', 'info');
+        setTimeout(() => setStatus(null), 1800);
+      }
+    } catch (e) {
+      input.value = '';
+      setStatus(formatError(e), 'error');
+    }
+  });
+  renderFoodImageSlot(idx);
+});
+
 // ============ Send + preview ============
 
 async function send() {
   showValidation(null);
   setStatus(null);
   const input = els.input.value.trim();
-  if (!input) { showValidation('Type a meal description first.'); return; }
+  const images = foodImages.filter(Boolean);
+  if (!input && !images.length) { showValidation('Type a description or add at least one image.'); return; }
   if (input.length > 2000) { showValidation('Keep under 2000 characters.'); return; }
   if (!currentUser) {
     setStatus('Sign in to log meals with AI.', 'error');
@@ -892,10 +1245,15 @@ async function send() {
   const lib = loadLibrary();
   const matched = libraryLookup(input, lib);
   const promptWithContext = buildPromptWithContext(state.systemPrompt, matched);
+  const requestText = input
+    ? `${input}\n\nImage context: Use any attached images as supporting evidence for portion size, nutrition facts, packaging, or other food details.`
+    : 'Estimate the food or nutrition information from the attached images. If details are ambiguous, include a notes line asking for clarification.';
 
-  // Build fallback chain: try primary, then up to 2 alternatives in priority order.
+  // Build fallback chain: text requests may fall back; image requests use one call to avoid burning quota.
   const primary = state.model;
-  const chain = [primary, ...FALLBACK_PRIORITY.filter((m) => m !== primary)].slice(0, 3);
+  const chain = images.length
+    ? [primary]
+    : [primary, ...FALLBACK_PRIORITY.filter((m) => m !== primary)].slice(0, 3);
   let lastErr = null;
   let triedModels = [];
 
@@ -905,18 +1263,20 @@ async function send() {
       triedModels.push(model);
       if (i > 0) setStatus(`${chain[0]} overloaded — falling back to ${model}…`, 'info');
       try {
-        const result = await callGeminiWithRetry({
-          model,
-          systemPrompt: promptWithContext,
-          input,
-        });
+        const opts = { model, systemPrompt: promptWithContext, input: requestText, images };
+        const result = images.length ? await callGemini(opts) : await callGeminiWithRetry(opts);
         setStatus(null);
         if (!result.parsed || !Array.isArray(result.parsed.rows)) {
           setStatus(`Gemini (${model}) returned non-JSON or wrong shape. Raw output below — try rephrasing or switching model in Settings.`, 'error');
           renderRawFallback(result.raw);
           return;
         }
-        renderPreview(result.parsed);
+        if (koalaMode === 'p') {
+          const logged = logParsedMeal(result.parsed, input);
+          setStatus(`Logged ${logged.name} with ${fmtNum(logged.kcal, 0)} kcal. ${ICON_LEAF}`, 'info');
+        } else {
+          renderPreview(result.parsed, input);
+        }
         return;
       } catch (e) {
         lastErr = e;
@@ -989,7 +1349,7 @@ function removePreviewRow(index) {
   renderPreview({ rows, notes: lastPreview.notes });
 }
 
-function renderPreview(parsed) {
+function renderPreview(parsed, sourceInput = '') {
   // Restore table element if it was swapped out by renderRawFallback.
   if (els.previewTable.tagName !== 'TABLE') {
     const tbl = document.createElement('table');
@@ -1000,7 +1360,7 @@ function renderPreview(parsed) {
   }
   const rows = withComputedTotal((parsed.rows || []).filter((r) => r && r.item != null));
   const notes = Array.isArray(parsed.notes) ? parsed.notes : [];
-  lastPreview = { rows, notes };
+  lastPreview = { rows, notes, sourceInput };
 
   // Table
   const tbl = els.previewTable;
@@ -1046,12 +1406,12 @@ function renderPreview(parsed) {
       btn.type = 'button';
       btn.className = 'fl-row-add-btn';
       if (isLibraryRow) {
-        btn.textContent = 'In FoodLibrary';
-        btn.title = 'This item is already from FoodLibrary';
+        btn.textContent = 'Saved item';
+        btn.title = 'This item is already saved';
         btn.disabled = true;
       } else {
-        btn.textContent = '+ FoodLibrary';
-        btn.title = 'Add this item to FoodLibrary';
+        btn.textContent = '+ Save item';
+        btn.title = 'Save this item for future estimates';
         btn.addEventListener('click', () => addRowToLibrary(r, btn));
       }
       tdAdd.appendChild(btn);
@@ -1094,6 +1454,26 @@ els.sendBtn.addEventListener('click', send);
 els.input.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); send(); }
 });
+els.modeButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    applyKoalaMode(btn.dataset.mode === 'p' ? 'p' : 'j', true);
+  });
+});
+els.settingKoalaButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    applyKoalaMode(btn.dataset.settingKoalaMode === 'p' ? 'p' : 'j', true);
+  });
+});
+els.themeButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    applyTheme(btn.dataset.themeOption === 'light' ? 'light' : 'dark', true);
+  });
+});
+if (els.headerThemeToggle) {
+  els.headerThemeToggle.addEventListener('click', () => {
+    applyTheme((state.theme || DEFAULT_THEME) === 'light' ? 'dark' : 'light', true);
+  });
+}
 
 // ============ Add to FoodLibrary (per item) ============
 
@@ -1155,7 +1535,7 @@ function addRowToLibrary(row, btn) {
   );
   if (exists) {
     if (btn) {
-      btn.textContent = 'In FoodLibrary';
+      btn.textContent = 'Saved item';
       btn.disabled = true;
     }
     return;
@@ -1187,24 +1567,45 @@ function addRowToLibrary(row, btn) {
 
 // ============ Log button ============
 
-function getSelectedMeal() {
-  const r = document.querySelector('input[name="fl-meal"]:checked');
-  return r ? r.value : null;
-}
-
 function selectedDate() {
   return selectedDailyDate || todayISO();
 }
 
-function logMeal() {
-  if (!lastPreview || !lastPreview.rows.length) {
-    setStatus('Nothing to log — Send a meal description first.', 'error');
-    return;
+function dayMeals(day) {
+  if (day && Array.isArray(day.meals)) {
+    return day.meals.map((m) => ({
+      id: m.id || uid(),
+      name: String(m.name || 'Meal'),
+      loggedAt: m.loggedAt || '',
+      items: Array.isArray(m.items) ? m.items : [],
+    }));
   }
-  const slot = getSelectedMeal();
-  if (!slot) { setStatus('Pick a meal slot first.', 'error'); return; }
+  const meals = [];
+  MEAL_SLOTS.forEach((slot) => {
+    const items = (day && day[slot] && Array.isArray(day[slot].items)) ? day[slot].items : [];
+    if (items.length) {
+      meals.push({ id: `legacy-${slot}`, name: MEAL_LABELS[slot], loggedAt: '', items });
+    }
+  });
+  return meals;
+}
 
-  const items = lastPreview.rows
+function mealNameFromInput(day, input) {
+  const text = String(input || '').toLowerCase();
+  const hinted = MEAL_HINTS.find(([word]) => {
+    const pattern = new RegExp(`(^|\\W)${word.replace(' ', '\\s+')}($|\\W)`, 'i');
+    return pattern.test(text);
+  });
+  if (hinted) return hinted[1];
+  const maxMeal = dayMeals(day).reduce((max, meal) => {
+    const m = String(meal.name || '').match(/^Meal\s+(\d+)$/i);
+    return m ? Math.max(max, Number(m[1])) : max;
+  }, 0);
+  return `Meal ${maxMeal + 1}`;
+}
+
+function rowsToItems(rows) {
+  return rows
     .filter((r) => !isTotalRow(r))
     .map((r) => ({
       item: String(r.item ?? ''),
@@ -1215,27 +1616,54 @@ function logMeal() {
       su: num(r.su),
       fb: num(r.fb),
     }));
+}
+
+function logItemsAsMeal(items, sourceInput = '') {
   if (!items.length) return;
 
   const date = selectedDate();
   const all = loadDaily();
   if (!all[date]) all[date] = blankDay();
-  if (!all[date][slot]) all[date][slot] = { items: [] };
-  all[date][slot].items.push(...items);
+  const day = all[date];
+  const meals = dayMeals(day);
+  const name = mealNameFromInput(day, sourceInput);
+  const newMeal = {
+    id: uid(),
+    name,
+    loggedAt: new Date().toISOString(),
+    items,
+  };
+  meals.unshift(newMeal);
+  day.meals = meals;
   saveDaily(all);
 
   renderDaily();
   els.input.value = '';
+  clearFoodImages();
   showValidation(null);
   clearPreviewState();
-  setStatus(`Logged ${items.length} item(s) under ${MEAL_LABELS[slot]}.`, 'info');
-  setTimeout(() => setStatus(null), 2500);
+  return { count: items.length, name, kcal: sumItems(items).kcal };
+}
+
+function logParsedMeal(parsed, sourceInput = '') {
+  const rows = withComputedTotal((parsed.rows || []).filter((r) => r && r.item != null));
+  const logged = logItemsAsMeal(rowsToItems(rows), sourceInput);
+  return logged || { count: 0, name: 'Meal', kcal: 0 };
+}
+
+function logMeal() {
+  if (!lastPreview || !lastPreview.rows.length) {
+    setStatus('Nothing to log — Send a meal description first.', 'error');
+    return;
+  }
+
+  const logged = logItemsAsMeal(rowsToItems(lastPreview.rows), lastPreview.sourceInput || els.input.value.trim());
+  if (!logged) return;
+  setStatus(`Logged ${logged.name} with ${fmtNum(logged.kcal, 0)} kcal. ${ICON_LEAF}`, 'info');
 }
 
 function blankDay() {
-  const d = {};
-  MEAL_SLOTS.forEach((s) => { d[s] = { items: [] }; });
-  return d;
+  return { meals: [] };
 }
 
 els.logBtn.addEventListener('click', logMeal);
@@ -1282,15 +1710,202 @@ function getDay(all, date) {
   return all[date] || blankDay();
 }
 
-function removeDailyItem(date, slot, index) {
+function saveMealsForDate(date, meals) {
   const all = loadDaily();
   const day = getDay(all, date);
-  const items = (day[slot] && Array.isArray(day[slot].items)) ? [...day[slot].items] : [];
-  items.splice(index, 1);
-  day[slot] = { items };
+  day.meals = meals;
   all[date] = day;
   saveDaily(all);
   renderDaily();
+}
+
+function stomachMealKey(date, meal, mealIdx) {
+  return `stomach:${date}:${meal?.id || mealIdx}`;
+}
+
+function removeDailyItem(date, mealIndex, itemIndex) {
+  const all = loadDaily();
+  const day = getDay(all, date);
+  const meals = dayMeals(day);
+  const meal = meals[mealIndex];
+  if (!meal) return;
+  if (itemIndex == null) {
+    meals.splice(mealIndex, 1);
+  } else {
+    meal.items = Array.isArray(meal.items) ? [...meal.items] : [];
+    meal.items.splice(itemIndex, 1);
+    if (!meal.items.length) meals.splice(mealIndex, 1);
+  }
+  saveMealsForDate(date, meals);
+}
+
+function dailyProgress(total, target) {
+  if (!target || !target.kcal) return 0;
+  return Math.max(0, Math.min(100, (total.kcal / target.kcal) * 100));
+}
+
+function metricValueForTarget(target, key) {
+  if (!target) return null;
+  if (key === 'su') return target.sugarMax;
+  if (key === 'fb') return target.fiberMin;
+  return target[key];
+}
+
+function renderMetricChip(label, key, total, target) {
+  const targetValue = metricValueForTarget(target, key);
+  const short = { Protein: 'P', Fat: 'F', Carb: 'C', Sugar: 'Su', Fiber: 'Fb' }[label] || label;
+  if (targetValue == null) {
+    return `${short} ${key === 'kcal' ? fmtNum(total[key], 0) : fmtNum(total[key], 0)}`;
+  } else if (key === 'su') {
+    return `${short} ${fmtNum(total[key], 0)}/<${fmtNum(targetValue, 0)}`;
+  } else if (key === 'fb') {
+    return `${short} ${fmtNum(total[key], 0)}/> ${fmtNum(targetValue, 0)}`.replace('> ', '>');
+  }
+  return `${short} ${fmtNum(total[key], 0)}/${fmtNum(targetValue, 0)}`;
+}
+
+function targetModeShort(mode) {
+  return { normal: 'N', high: 'H', diet: 'D', custom: 'C', none: '-' }[mode] || 'N';
+}
+
+function renderNutritionBoard(total, target) {
+  if (!els.nutritionBoard) return;
+  const remain = target ? target.kcal - total.kcal : null;
+  const progress = dailyProgress(total, target);
+  els.nutritionBoard.innerHTML = '';
+
+  const hero = document.createElement('article');
+  hero.className = 'fl-kcal-hero';
+  if (els.dailyTargetMode) {
+    const targetPicker = document.createElement('label');
+    targetPicker.className = 'fl-kcal-target-picker';
+    const display = document.createElement('span');
+    display.className = 'fl-kcal-target-display';
+    display.textContent = `${ICON_DART} ${targetModeShort(els.dailyTargetMode.value)}`;
+    targetPicker.appendChild(els.dailyTargetMode);
+    targetPicker.appendChild(display);
+    hero.appendChild(targetPicker);
+  }
+  const eyebrow = document.createElement('span');
+  eyebrow.className = 'fl-kcal-eyebrow';
+  eyebrow.textContent = 'KCAL GOAL';
+  const value = document.createElement('strong');
+  value.textContent = target ? `${fmtNum(total.kcal, 0)} / ${fmtNum(target.kcal, 0)}` : fmtNum(total.kcal, 0);
+  const remainEl = document.createElement('span');
+  remainEl.className = 'fl-kcal-remain';
+  remainEl.textContent = target
+    ? (remain >= 0 ? `${fmtNum(remain, 0)} left` : `${fmtNum(Math.abs(remain), 0)} over`)
+    : 'Set a target to track remain';
+  const bar = document.createElement('div');
+  bar.className = 'fl-kcal-bar';
+  const fill = document.createElement('span');
+  fill.style.width = `${progress}%`;
+  fill.className = target && total.kcal > target.kcal ? 'fl-over' : '';
+  bar.appendChild(fill);
+
+  const macros = document.createElement('p');
+  macros.className = 'fl-macro-line';
+  macros.textContent = [
+    ['Protein', 'p'],
+    ['Fat', 'f'],
+    ['Carb', 'c'],
+    ['Sugar', 'su'],
+    ['Fiber', 'fb'],
+  ].map(([label, key]) => renderMetricChip(label, key, total, target)).join(' · ');
+
+  hero.append(eyebrow, value, remainEl, bar, macros);
+  els.nutritionBoard.append(hero);
+}
+
+function renderStomach(date, meals) {
+  const totalItems = meals.reduce((sum, meal) => sum + (Array.isArray(meal.items) ? meal.items.length : 0), 0);
+  const open = expandedMeals.has('stomach');
+  const card = document.createElement('article');
+  card.className = 'fl-stomach-card' + (open ? ' fl-expanded' : '');
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'fl-stomach-toggle';
+  button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  const name = document.createElement('span');
+  name.textContent = 'KOALA STOMACH';
+  const count = document.createElement('small');
+  count.textContent = `${meals.length} meal${meals.length === 1 ? '' : 's'} · ${totalItems} item${totalItems === 1 ? '' : 's'}`;
+  button.append(name, count);
+  button.addEventListener('click', () => {
+    if (expandedMeals.has('stomach')) expandedMeals.delete('stomach');
+    else expandedMeals.add('stomach');
+    renderDaily();
+  });
+  card.appendChild(button);
+
+  if (!open) return card;
+
+  const body = document.createElement('div');
+  body.className = 'fl-stomach-body';
+  if (!meals.length) {
+    const empty = document.createElement('p');
+    empty.className = 'fl-empty';
+    empty.textContent = 'No meals logged yet.';
+    body.appendChild(empty);
+  }
+  meals.forEach((meal, mealIdx) => {
+    const subtotal = sumItems(meal.items || []);
+    const mealKey = stomachMealKey(date, meal, mealIdx);
+    const mealOpen = expandedMeals.has(mealKey);
+    const mealRow = document.createElement('div');
+    mealRow.className = 'fl-stomach-row fl-stomach-meal-row' + (mealOpen ? ' fl-expanded' : '');
+    const mealToggle = document.createElement('button');
+    mealToggle.type = 'button';
+    mealToggle.className = 'fl-stomach-meal-toggle';
+    mealToggle.setAttribute('aria-expanded', mealOpen ? 'true' : 'false');
+    const title = document.createElement('strong');
+    title.textContent = meal.name || `Meal ${mealIdx + 1}`;
+    const meta = document.createElement('span');
+    meta.textContent = `${fmtNum(subtotal.kcal, 0)} kcal · ${(meal.items || []).length} item${(meal.items || []).length === 1 ? '' : 's'}`;
+    mealToggle.append(title, meta);
+    mealToggle.addEventListener('click', () => {
+      if (expandedMeals.has(mealKey)) expandedMeals.delete(mealKey);
+      else expandedMeals.add(mealKey);
+      renderDaily();
+    });
+    const delMeal = document.createElement('button');
+    delMeal.type = 'button';
+    delMeal.className = 'fl-row-del-btn';
+    delMeal.textContent = '×';
+    delMeal.title = 'Remove meal';
+    delMeal.addEventListener('click', () => removeDailyItem(date, mealIdx, null));
+    mealRow.append(mealToggle, delMeal);
+    body.appendChild(mealRow);
+
+    if (!mealOpen) return;
+
+    (meal.items || []).forEach((it, itemIdx) => {
+      const itemRow = document.createElement('div');
+      itemRow.className = 'fl-stomach-row fl-stomach-item-row';
+      const itemMain = document.createElement('div');
+      const itemTitle = document.createElement('strong');
+      itemTitle.textContent = String(it.item ?? '');
+      const itemMeta = document.createElement('span');
+      itemMeta.textContent = `P ${fmtNum(it.p, 1)} · F ${fmtNum(it.f, 1)} · C ${fmtNum(it.c, 1)} · Su ${fmtNum(it.su, 1)} · Fb ${fmtNum(it.fb, 1)}`;
+      itemMain.append(itemTitle, itemMeta);
+      const side = document.createElement('div');
+      side.className = 'fl-stomach-item-side';
+      const cal = document.createElement('span');
+      cal.textContent = `${fmtNum(it.kcal, 0)} kcal`;
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'fl-row-del-btn';
+      del.textContent = '×';
+      del.title = 'Remove item';
+      del.addEventListener('click', () => removeDailyItem(date, mealIdx, itemIdx));
+      side.append(cal, del);
+      itemRow.append(itemMain, side);
+      body.appendChild(itemRow);
+    });
+  });
+  card.appendChild(body);
+  return card;
 }
 
 function renderDaily() {
@@ -1306,162 +1921,21 @@ function renderDaily() {
   }
 
   const day = getDay(all, date);
-
-  const tbl = els.dailyTable;
-  tbl.innerHTML = '';
-
-  // Header
-  const thead = document.createElement('thead');
-  const trh = document.createElement('tr');
-  COLS.forEach((c) => {
-    const th = document.createElement('th');
-    th.textContent = c === 'item' ? '' : c;
-    if (c !== 'item') th.classList.add('fl-num');
-    trh.appendChild(th);
-  });
-  const thDel = document.createElement('th');
-  trh.appendChild(thDel);
-  thead.appendChild(trh);
-  tbl.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-
   // Day total accumulator
   const dayTotal = { kcal: 0, p: 0, f: 0, c: 0, su: 0, fb: 0 };
+  const meals = dayMeals(day);
 
-  MEAL_SLOTS.forEach((slot) => {
-    const items = (day[slot] && day[slot].items) || [];
-    const subtotal = sumItems(items);
+  meals.forEach((meal) => {
+    const subtotal = sumItems(meal.items || []);
     NUMERIC_COLS.forEach((k) => { dayTotal[k] += subtotal[k]; });
-
-    // Meal header row (clickable)
-    const trMeal = document.createElement('tr');
-    trMeal.classList.add('fl-meal-row');
-    if (expandedMeals.has(slot)) trMeal.classList.add('fl-expanded');
-    const tdName = document.createElement('td');
-    tdName.textContent = `${MEAL_LABELS[slot]} (${items.length})`;
-    trMeal.appendChild(tdName);
-    NUMERIC_COLS.forEach((k) => {
-      const td = document.createElement('td');
-      td.classList.add('fl-num');
-      td.textContent = k === 'kcal' ? fmtNum(subtotal[k], 0) : fmtNum(subtotal[k], 1);
-      trMeal.appendChild(td);
-    });
-    const tdMealAction = document.createElement('td');
-    trMeal.appendChild(tdMealAction);
-    trMeal.addEventListener('click', () => {
-      if (expandedMeals.has(slot)) expandedMeals.delete(slot);
-      else expandedMeals.add(slot);
-      renderDaily();
-    });
-    tbody.appendChild(trMeal);
-
-    if (expandedMeals.has(slot)) {
-      if (!items.length) {
-        const tr = document.createElement('tr');
-        tr.classList.add('fl-empty-row');
-        const td = document.createElement('td');
-        td.colSpan = COLS.length + 1;
-        td.textContent = '(no items)';
-        tr.appendChild(td);
-        tbody.appendChild(tr);
-      } else {
-        items.forEach((it, idx) => {
-          const tr = document.createElement('tr');
-          tr.classList.add('fl-item-row');
-          const tdN = document.createElement('td');
-          tdN.textContent = String(it.item ?? '');
-          tr.appendChild(tdN);
-          NUMERIC_COLS.forEach((k) => {
-            const td = document.createElement('td');
-            td.classList.add('fl-num');
-            td.textContent = k === 'kcal' ? fmtNum(it[k], 0) : fmtNum(it[k], 1);
-            tr.appendChild(td);
-          });
-          const tdDel = document.createElement('td');
-          const del = document.createElement('button');
-          del.type = 'button';
-          del.className = 'fl-row-del-btn';
-          del.textContent = '×';
-          del.title = `Remove from ${MEAL_LABELS[slot]}`;
-          del.addEventListener('click', (e) => {
-            e.stopPropagation();
-            removeDailyItem(date, slot, idx);
-          });
-          tdDel.appendChild(del);
-          tr.appendChild(tdDel);
-          tbody.appendChild(tr);
-        });
-      }
-    }
   });
-
-  // Total row
-  const trTotal = document.createElement('tr');
-  trTotal.classList.add('fl-total');
-  const tdTotalLabel = document.createElement('td');
-  tdTotalLabel.textContent = 'Total';
-  trTotal.appendChild(tdTotalLabel);
-  NUMERIC_COLS.forEach((k) => {
-    const td = document.createElement('td');
-    td.classList.add('fl-num');
-    td.textContent = k === 'kcal' ? fmtNum(dayTotal[k], 0) : fmtNum(dayTotal[k], 1);
-    trTotal.appendChild(td);
-  });
-  trTotal.appendChild(document.createElement('td'));
-  tbody.appendChild(trTotal);
 
   const target = targetForDate(date);
-  const MACRO_COLS = new Set(['kcal', 'p', 'f', 'c']);
-  const trTarget = document.createElement('tr');
-  trTarget.classList.add('fl-target-row');
-  const tdT = document.createElement('td');
-  tdT.textContent = 'Target';
-  trTarget.appendChild(tdT);
-  NUMERIC_COLS.forEach((k) => {
-    const td = document.createElement('td');
-    td.classList.add('fl-num');
-    if (!target) {
-      td.textContent = '—';
-    } else if (k === 'su') {
-      td.textContent = target.sugarMax != null ? `< ${fmtNum(target.sugarMax, 0)}` : '—';
-    } else if (k === 'fb') {
-      td.textContent = target.fiberMin != null ? `> ${fmtNum(target.fiberMin, 0)}` : '—';
-    } else {
-      td.textContent = MACRO_COLS.has(k) && target[k] != null
-        ? (k === 'kcal' ? fmtNum(target[k], 0) : fmtNum(target[k], 1))
-        : '—';
-    }
-    trTarget.appendChild(td);
-  });
-  trTarget.appendChild(document.createElement('td'));
-  tbody.appendChild(trTarget);
+  renderNutritionBoard(dayTotal, target);
 
-  const trRemain = document.createElement('tr');
-  trRemain.classList.add('fl-remain-row');
-  const tdR = document.createElement('td');
-  tdR.textContent = 'Remain';
-  trRemain.appendChild(tdR);
-  NUMERIC_COLS.forEach((k) => {
-    const td = document.createElement('td');
-    td.classList.add('fl-num');
-    if (!target) {
-      td.textContent = '—';
-    } else if (k === 'su') {
-      td.textContent = target.sugarMax != null ? fmtNum(target.sugarMax - dayTotal[k], 0) : '—';
-    } else if (k === 'fb') {
-      td.textContent = target.fiberMin != null ? fmtNum(target.fiberMin - dayTotal[k], 0) : '—';
-    } else {
-      td.textContent = MACRO_COLS.has(k) && target[k] != null
-        ? (k === 'kcal' ? fmtNum(target[k] - dayTotal[k], 0) : fmtNum(target[k] - dayTotal[k], 1))
-        : '—';
-    }
-    trRemain.appendChild(td);
-  });
-  trRemain.appendChild(document.createElement('td'));
-  tbody.appendChild(trRemain);
-
-  tbl.appendChild(tbody);
+  const stack = els.dailyTable;
+  stack.innerHTML = '';
+  stack.appendChild(renderStomach(date, meals));
 
   // Auto-sync today's totals → Food History
   const hasAny = NUMERIC_COLS.some((k) => dayTotal[k] > 0);
@@ -1479,12 +1953,18 @@ function renderDaily() {
     hist.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     saveHistory(hist);
     renderHistory();
+  } else {
+    const hist = loadHistory();
+    if (hist.some((h) => h.date === date)) {
+      saveHistory(hist.filter((h) => h.date !== date));
+      renderHistory();
+    }
   }
 }
 
 els.clearDayBtn.addEventListener('click', () => {
   const date = selectedDate();
-  if (!confirm(`Clear log for ${date}? Items already logged will be removed.`)) return;
+  if (!confirm(`Reset FoodLog for ${date}? Items already logged will be removed.`)) return;
   const all = loadDaily();
   delete all[date];
   saveDaily(all);
@@ -1544,6 +2024,35 @@ function blankGymRow(kind) {
     : { kg: '', rep: '' };
 }
 
+function suggestedGymRows(kind, name = '') {
+  if (kind === 'cardio') return [{ speed: '6', incline: '0', time: '20' }, { speed: '6', incline: '0', time: '20' }, { speed: '6', incline: '0', time: '20' }];
+  const lower = String(name).toLowerCase();
+  const kg = /leg press|squat|deadlift|hip thrust/.test(lower) ? '40'
+    : /bench|row|pulldown|press/.test(lower) ? '20'
+      : /curl|raise|extension|fly/.test(lower) ? '8'
+        : '10';
+  return [{ kg, rep: '10' }, { kg, rep: '10' }, { kg, rep: '10' }];
+}
+
+function defaultGymRows(kind, rows = [], name = '') {
+  const normalized = normalizeGymRows(Array.isArray(rows) ? rows : [], kind);
+  if (!normalized.length) return suggestedGymRows(kind, name);
+  while (normalized.length < 3) {
+    const seed = normalized[normalized.length - 1] || blankGymRow(kind);
+    normalized.push({ ...seed });
+  }
+  return normalized;
+}
+
+function gymActivityByName(name) {
+  return GYM_ACTIVITIES.find((a) => a.name === name) || null;
+}
+
+function touchGymDay(day) {
+  day.savedAt = new Date().toISOString();
+  return day;
+}
+
 function normalizeGymRows(rows, kind) {
   return rows.map((r) => kind === 'cardio'
     ? { speed: String(r.speed ?? ''), incline: String(r.incline ?? ''), time: String(r.time ?? '') }
@@ -1557,7 +2066,7 @@ function gymDay(all, date) {
 }
 
 function isGymDayEmpty(day) {
-  const noActs = !day || !Array.isArray(day.activities) || day.activities.length === 0;
+  const noActs = !day || !Array.isArray(day.activities) || !day.activities.some((a) => String(a?.name || '').trim());
   const noNote = !day || !day.note || !String(day.note).trim();
   return noActs && noNote;
 }
@@ -1569,7 +2078,7 @@ function setGymNote(date, text) {
   if (isGymDayEmpty(day)) {
     delete all[date];
   } else {
-    all[date] = day;
+    all[date] = touchGymDay(day);
   }
   saveGym(all);
 }
@@ -1646,6 +2155,27 @@ function renderGymDateOptions() {
   els.gymDate.value = selectedGymDate;
 }
 
+function renderGymPresetOptions() {
+  const favs = loadGymFavs();
+  if (els.gymPreset) {
+    els.gymPreset.innerHTML = '<option value="">Preset</option>';
+    favs.forEach((fav) => {
+      const opt = document.createElement('option');
+      opt.value = fav.id;
+      opt.textContent = fav.name;
+      els.gymPreset.appendChild(opt);
+    });
+  }
+  if (els.gymFavOptions) {
+    els.gymFavOptions.innerHTML = '';
+    favs.forEach((fav) => {
+      const opt = document.createElement('option');
+      opt.value = fav.name || '';
+      els.gymFavOptions.appendChild(opt);
+    });
+  }
+}
+
 function addActivity() {
   if (gymLocked) return;
   showGymValidation(null);
@@ -1666,7 +2196,7 @@ function addActivity() {
     id: uid(),
     name: activity.name || '',
     kind: activity.kind,
-    rows: [blankGymRow(activity.kind)],
+    rows: suggestedGymRows(activity.kind, activity.name),
   });
   all[date] = day;
   saveGym(all);
@@ -1683,7 +2213,7 @@ function updateSetValue(activityIdx, setIdx, key, value) {
   if (!a) return;
   if (!a.rows[setIdx]) a.rows[setIdx] = {};
   a.rows[setIdx][key] = String(value);
-  all[date] = day;
+  all[date] = touchGymDay(day);
   saveGym(all);
 }
 
@@ -1694,9 +2224,10 @@ function insertSetBelow(activityIdx, setIdx) {
   const day = gymDay(all, date);
   const a = day.activities[activityIdx];
   if (!a) return;
+  a.rows = defaultGymRows(a.kind, a.rows, a.name);
   const seed = a.rows[setIdx] || blankGymRow(a.kind);
   a.rows.splice(setIdx + 1, 0, { ...seed });
-  all[date] = day;
+  all[date] = touchGymDay(day);
   saveGym(all);
   renderGym();
 }
@@ -1708,19 +2239,28 @@ function removeSet(activityIdx, setIdx) {
   const day = gymDay(all, date);
   const a = day.activities[activityIdx];
   if (!a) return;
+  a.rows = defaultGymRows(a.kind, a.rows, a.name);
   a.rows.splice(setIdx, 1);
   if (a.rows.length === 0) {
     // Last set removed — drop the activity itself.
     day.activities.splice(activityIdx, 1);
   }
-  if (isGymDayEmpty(day)) delete all[date]; else all[date] = day;
+  if (isGymDayEmpty(day)) delete all[date]; else all[date] = touchGymDay(day);
   saveGym(all);
   renderGym();
 }
 
 function toggleGymLock() {
   gymLocked = !gymLocked;
-  els.gymLockBtn.textContent = gymLocked ? '🔓 Unlock' : '🔒 Lock';
+  if (gymLocked) {
+    const all = loadGym();
+    const day = gymDay(all, selectedGymDate);
+    if (!isGymDayEmpty(day)) {
+      all[selectedGymDate] = touchGymDay(day);
+      saveGym(all);
+    }
+  }
+  els.gymLockBtn.textContent = gymLocked ? '🔓 Modify' : '🔒 Save';
   renderGym();
 }
 
@@ -1741,121 +2281,19 @@ function gymMetricText(activity) {
   }).join('; ');
 }
 
-// Each tuple: [data key, numeric step, unit hint shown next to the input].
-const GYM_METRIC_FIELDS = {
-  weight: [['kg', '0.1', 'kg'], ['rep', '1', 'rep']],
-  cardio: [['speed', '0.1', 'km/h'], ['incline', '0.1', '%'], ['time', '1', 'min']],
-};
-
-function buildActivityCard(a, activityIdx, kind, opts) {
-  const locked = !!opts.locked;
-  const card = document.createElement('article');
-  card.className = 'fl-gym-activity-card';
-
-  const header = document.createElement('header');
-  header.className = 'fl-gym-activity-card-header';
-  header.textContent = a.name || '—';
-  card.appendChild(header);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'fl-table-wrap';
-
-  const table = document.createElement('table');
-  table.className = 'fl-table fl-gym-card-table';
-
-  // No <thead> — unit hints render next to each input. This lets weight and cardio
-  // cards share the same body shape with 4 metric columns + action column.
-
-  const fields = GYM_METRIC_FIELDS[kind === 'cardio' ? 'cardio' : 'weight'];
-
-  const tbody = document.createElement('tbody');
-  const rows = Array.isArray(a.rows) && a.rows.length ? a.rows : [{}];
-
-  rows.forEach((r, setIdx) => {
-    const tr = document.createElement('tr');
-
-    // SET # (narrow)
-    const tdSeq = document.createElement('td');
-    tdSeq.className = 'fl-gym-set-col';
-    tdSeq.textContent = String(setIdx + 1);
-    tr.appendChild(tdSeq);
-
-    // 4 metric columns (equal width)
-    fields.forEach(([key, step, unit]) => {
-      const td = document.createElement('td');
-      td.className = 'fl-gym-mcol';
-      if (locked) {
-        const val = r[key];
-        td.textContent = (val === undefined || val === null || val === '')
-          ? '—'
-          : `${val} ${unit}`;
-      } else {
-        const inputWrap = document.createElement('span');
-        inputWrap.className = 'fl-gym-metric-input-wrap';
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.inputMode = 'decimal';
-        input.min = '0';
-        input.step = step;
-        input.value = r[key] || '';
-        input.addEventListener('input', () => {
-          updateSetValue(activityIdx, setIdx, key, input.value);
-        });
-        const unitEl = document.createElement('span');
-        unitEl.className = 'fl-gym-metric-unit';
-        unitEl.textContent = unit;
-        inputWrap.appendChild(input);
-        inputWrap.appendChild(unitEl);
-        td.appendChild(inputWrap);
-      }
-      tr.appendChild(td);
-    });
-
-    // Action column: + (green) and ×
-    const tdAct = document.createElement('td');
-    tdAct.className = 'fl-gym-actions-col';
-    if (!locked) {
-      const addBtn = document.createElement('button');
-      addBtn.type = 'button';
-      addBtn.className = 'fl-row-addset-btn';
-      addBtn.textContent = '+';
-      addBtn.title = kind === 'cardio' ? 'Insert interval below' : 'Insert set below';
-      addBtn.addEventListener('click', () => insertSetBelow(activityIdx, setIdx));
-      tdAct.appendChild(addBtn);
-
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'fl-row-del-btn';
-      del.textContent = '×';
-      del.title = rows.length > 1
-        ? (kind === 'cardio' ? 'Remove interval' : 'Remove set')
-        : 'Remove activity';
-      del.addEventListener('click', () => removeSet(activityIdx, setIdx));
-      tdAct.appendChild(del);
-    }
-    tr.appendChild(tdAct);
-    tbody.appendChild(tr);
-  });
-
-  table.appendChild(tbody);
-  wrap.appendChild(table);
-  card.appendChild(wrap);
-  return card;
-}
-
 function buildGymNoteField(initialText, onChange, locked) {
   const wrap = document.createElement('div');
   wrap.className = 'fl-gym-note';
 
   const heading = document.createElement('h3');
   heading.className = 'fl-gym-section-heading';
-  heading.textContent = 'Note of the day';
+  heading.textContent = 'KOALA NOTE';
   wrap.appendChild(heading);
 
   const textarea = document.createElement('textarea');
   textarea.className = 'fl-gym-note-input';
   textarea.rows = 3;
-  textarea.placeholder = "How did today's training feel? Drop a quick win, a struggle, anything ✨";
+  textarea.placeholder = 'How was today? 💪';
   textarea.value = initialText || '';
   if (locked) textarea.readOnly = true;
 
@@ -1877,48 +2315,445 @@ function buildGymNoteField(initialText, onChange, locked) {
   return wrap;
 }
 
-function renderGymSection(container, activities, opts = {}) {
-  container.innerHTML = '';
+function formatGymSavedTime(iso) {
+  if (!iso) return 'Not saved yet';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'Not saved yet';
+  return `Saved ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
 
-  if (!activities.length) {
-    const empty = document.createElement('p');
-    empty.className = 'fl-empty';
-    empty.textContent = '(no activities)';
-    container.appendChild(empty);
-  } else {
-    activities.forEach((a, activityIdx) => {
-      const kind = a.kind === 'cardio' ? 'cardio' : 'weight';
-      container.appendChild(buildActivityCard(a, activityIdx, kind, opts));
-    });
+function renderGymSavedTime(day) {
+  if (els.gymSavedTime) els.gymSavedTime.textContent = formatGymSavedTime(day?.savedAt);
+}
+
+function gymDaySummary(day) {
+  const activities = Array.isArray(day?.activities) ? day.activities : [];
+  const named = activities.filter((a) => String(a?.name || '').trim());
+  const rows = named.reduce((sum, a) => sum + (Array.isArray(a.rows) ? a.rows.length : 0), 0);
+  const weightKg = named.reduce((sum, a) => {
+    if (a.kind === 'cardio') return sum;
+    return sum + (Array.isArray(a.rows) ? a.rows.reduce((s, r) => s + num(r.kg), 0) : 0);
+  }, 0);
+  const weightReps = named.reduce((sum, a) => {
+    if (a.kind === 'cardio') return sum;
+    return sum + (Array.isArray(a.rows) ? a.rows.reduce((s, r) => s + num(r.rep), 0) : 0);
+  }, 0);
+  const cardioMin = named.reduce((sum, a) => {
+    if (a.kind !== 'cardio') return sum;
+    return sum + (Array.isArray(a.rows) ? a.rows.reduce((s, r) => s + num(r.time), 0) : 0);
+  }, 0);
+  return {
+    activities: named.length,
+    rows,
+    weightKg,
+    weightReps,
+    cardioMin,
+    hasNote: !!String(day?.note || '').trim(),
+  };
+}
+
+function cloneGymActivities(activities) {
+  return (activities || []).map((a) => ({
+    id: uid(),
+    name: a.name || '',
+    kind: a.kind === 'cardio' ? 'cardio' : 'weight',
+    rows: defaultGymRows(a.kind === 'cardio' ? 'cardio' : 'weight', a.rows, a.name),
+  }));
+}
+
+function saveCurrentGymAsFavourite() {
+  const name = String(els.gymFavName?.value || '').trim().slice(0, 15);
+  if (!name) { showGymValidation('Name favourite first.'); return; }
+  const day = gymDay(loadGym(), selectedGymDate);
+  const activities = (day.activities || []).filter((a) => String(a?.name || '').trim());
+  if (!activities.length) { showGymValidation('Add a workout before saving favourite.'); return; }
+  const current = loadGymFavs();
+  const existing = current.find((f) => String(f.name || '').toLowerCase() === name.toLowerCase());
+  const favs = current.filter((f) => String(f.name || '').toLowerCase() !== name.toLowerCase());
+  favs.unshift({
+    id: existing?.id || uid(),
+    name,
+    activities: cloneGymActivities(activities),
+    savedAt: new Date().toISOString(),
+  });
+  if (!existing && favs.length > 5) {
+    showGymValidation('Max 5 favourites. Delete one in UserLibrary first.');
+    return;
   }
+  saveGymFavs(favs.slice(0, 5));
+  if (els.gymFavName) els.gymFavName.value = '';
+  showGymValidation(null);
+  renderGymPresetOptions();
+  renderLibrary();
+}
 
-  // Note of the day — always rendered (even when no activities yet)
-  if (opts.onNoteChange) {
-    container.appendChild(buildGymNoteField(opts.note, opts.onNoteChange, !!opts.locked));
+function applyGymFavourite(favId) {
+  const fav = loadGymFavs().find((f) => f.id === favId);
+  if (!fav) return;
+  const all = loadGym();
+  const day = gymDay(all, selectedGymDate);
+  day.activities = cloneGymActivities(fav.activities);
+  all[selectedGymDate] = touchGymDay(day);
+  saveGym(all);
+  renderGym();
+}
+
+function deleteGymFavourite(favId) {
+  saveGymFavs(loadGymFavs().filter((f) => f.id !== favId));
+  renderGymPresetOptions();
+  renderLibrary();
+}
+
+function updateGymFavourite(favId, updater, rerender = true) {
+  const next = loadGymFavs().map((fav) => {
+    if (fav.id !== favId) return fav;
+    const draft = { ...fav, activities: cloneGymActivities(fav.activities || []) };
+    updater(draft);
+    draft.activities = (draft.activities || []).filter((a) => String(a?.name || '').trim());
+    draft.savedAt = new Date().toISOString();
+    return draft;
+  });
+  saveGymFavs(next);
+  if (rerender) {
+    renderGymPresetOptions();
+    renderGymFavLibrary();
   }
 }
 
+function setGymFavActivityAt(favId, activityIdx, name) {
+  const preset = gymActivityByName(name);
+  if (!preset) return;
+  updateGymFavourite(favId, (fav) => {
+    fav.activities = Array.isArray(fav.activities) ? fav.activities : [];
+    const current = fav.activities[activityIdx];
+    fav.activities[activityIdx] = {
+      id: current?.id || uid(),
+      name,
+      kind: preset.kind,
+      rows: defaultGymRows(preset.kind, preset.kind === current?.kind ? current.rows : [], name),
+    };
+  });
+}
+
+function updateGymFavMetric(favId, activityIdx, setIdx, key, value) {
+  updateGymFavourite(favId, (fav) => {
+    const a = fav.activities?.[activityIdx];
+    if (!a) return;
+    a.rows = defaultGymRows(a.kind, a.rows, a.name);
+    if (!a.rows[setIdx]) a.rows[setIdx] = blankGymRow(a.kind);
+    a.rows[setIdx][key] = String(value);
+  }, false);
+}
+
+function insertGymFavSet(favId, activityIdx, setIdx) {
+  updateGymFavourite(favId, (fav) => {
+    const a = fav.activities?.[activityIdx];
+    if (!a) return;
+    a.rows = defaultGymRows(a.kind, a.rows, a.name);
+    const seed = a.rows[setIdx] || blankGymRow(a.kind);
+    a.rows.splice(setIdx + 1, 0, { ...seed });
+  });
+}
+
+function removeGymFavSet(favId, activityIdx, setIdx) {
+  updateGymFavourite(favId, (fav) => {
+    const a = fav.activities?.[activityIdx];
+    if (!a) return;
+    a.rows = defaultGymRows(a.kind, a.rows, a.name);
+    a.rows.splice(setIdx, 1);
+    if (!a.rows.length) fav.activities.splice(activityIdx, 1);
+  });
+}
+
+function removeGymFavActivity(favId, activityIdx) {
+  updateGymFavourite(favId, (fav) => {
+    fav.activities = (fav.activities || []).filter((_, idx) => idx !== activityIdx);
+  });
+}
+
+function gymOptionSelect(selectedName, rowIdx, locked, onChange = setGymActivityAt) {
+  const select = document.createElement('select');
+  select.className = 'fl-gym-row-activity';
+  select.disabled = locked;
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = 'N/A activity';
+  select.appendChild(empty);
+  ['Push Upper', 'Push Lower', 'Pull Upper', 'Pull Lower', 'Cardio'].forEach((group) => {
+    const matches = GYM_ACTIVITIES.filter((a) => a.group === group);
+    if (!matches.length) return;
+    const og = document.createElement('optgroup');
+    og.label = group;
+    matches.forEach((a) => {
+      const opt = document.createElement('option');
+      opt.value = a.name;
+      opt.textContent = a.name;
+      og.appendChild(opt);
+    });
+    select.appendChild(og);
+  });
+  select.value = selectedName || '';
+  select.addEventListener('change', () => onChange(rowIdx, select.value));
+  return select;
+}
+
+function setGymActivityAt(activityIdx, name) {
+  if (gymLocked || !name) return;
+  const preset = gymActivityByName(name);
+  if (!preset) return;
+  const all = loadGym();
+  const day = gymDay(all, selectedGymDate);
+  day.activities = Array.isArray(day.activities) ? day.activities : [];
+  const current = day.activities[activityIdx];
+  day.activities[activityIdx] = {
+    id: current?.id || uid(),
+    name,
+    kind: preset.kind,
+    rows: defaultGymRows(preset.kind, preset.kind === current?.kind ? current.rows : [], name),
+  };
+  all[selectedGymDate] = touchGymDay(day);
+  saveGym(all);
+  renderGym();
+}
+
+function updateGymActivityMetric(activityIdx, setIdx, key, value) {
+  if (gymLocked) return;
+  const all = loadGym();
+  const day = gymDay(all, selectedGymDate);
+  const a = day.activities?.[activityIdx];
+  if (!a) return;
+  a.rows = defaultGymRows(a.kind, a.rows, a.name);
+  if (!a.rows[setIdx]) a.rows[setIdx] = blankGymRow(a.kind);
+  a.rows[setIdx][key] = String(value);
+  all[selectedGymDate] = touchGymDay(day);
+  saveGym(all);
+  renderGymSavedTime(day);
+}
+
+function removeGymActivity(activityIdx) {
+  if (gymLocked) return;
+  const all = loadGym();
+  const day = gymDay(all, selectedGymDate);
+  day.activities = (day.activities || []).filter((_, idx) => idx !== activityIdx);
+  if (isGymDayEmpty(day)) delete all[selectedGymDate]; else all[selectedGymDate] = touchGymDay(day);
+  saveGym(all);
+  renderGym();
+}
+
+function weightSetEditor(a, activityIdx, setIdx, locked) {
+  const row = defaultGymRows(a.kind, a.rows, a.name)[setIdx] || blankGymRow('weight');
+  const wrap = document.createElement('span');
+  wrap.className = 'fl-gym-set-pair';
+  if (locked) {
+    wrap.textContent = `${row.kg || '—'} kg x ${row.rep || '—'}`;
+    return wrap;
+  }
+  [['kg', 'kg', '0.1'], ['rep', 'rep', '1']].forEach(([key, label, step]) => {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.inputMode = 'decimal';
+    input.min = '0';
+    input.step = step;
+    input.placeholder = label;
+    input.value = row[key] || '';
+    input.addEventListener('input', () => updateGymActivityMetric(activityIdx, setIdx, key, input.value));
+    wrap.appendChild(input);
+  });
+  return wrap;
+}
+
+function cardioMetricEditor(a, activityIdx, setIdx, metricIdx, locked) {
+  const fields = [['speed', 'speed', '0.1'], ['incline', 'incline', '0.1'], ['time', 'min', '1']];
+  const [key, label, step] = fields[metricIdx];
+  const row = defaultGymRows(a.kind, a.rows, a.name)[setIdx] || blankGymRow('cardio');
+  if (locked) {
+    const span = document.createElement('span');
+    span.textContent = row[key] || '—';
+    return span;
+  }
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.inputMode = 'decimal';
+  input.min = '0';
+  input.step = step;
+  input.placeholder = label;
+  input.value = row[key] || '';
+  input.addEventListener('input', () => updateGymActivityMetric(activityIdx, setIdx, key, input.value));
+  return input;
+}
+
+function gymActionButton(label, title, onClick, extraClass = '') {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = `fl-gym-mini-action ${extraClass}`.trim();
+  btn.textContent = label;
+  btn.title = title;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function gymMetricInput(value, key, onChange) {
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.inputMode = 'decimal';
+  input.min = '0';
+  input.step = key === 'kg' || key === 'speed' || key === 'incline' ? '0.1' : '1';
+  input.placeholder = key === 'time' ? 'min' : key;
+  input.value = value || '';
+  input.addEventListener('input', () => onChange(input.value));
+  return input;
+}
+
+function renderGymSection(container, activities, opts = {}) {
+  container.innerHTML = '';
+  const list = Array.isArray(activities) ? activities : [];
+  const locked = !!opts.locked;
+  const onActivityChange = opts.onActivityChange || setGymActivityAt;
+  const onMetricChange = opts.onMetricChange || updateGymActivityMetric;
+  const onInsertSet = opts.onInsertSet || insertSetBelow;
+  const onRemoveSet = opts.onRemoveSet || removeSet;
+  const onRemoveActivity = opts.onRemoveActivity || removeGymActivity;
+  const table = document.createElement('table');
+  table.className = 'fl-gym-koala-table';
+  const thead = document.createElement('thead');
+  const head = document.createElement('tr');
+  ['Activity', 'Set / Speed', 'Kg / Incline', 'Rep / Min', ''].forEach((label) => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    head.appendChild(th);
+  });
+  thead.appendChild(head);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  const rows = opts.showDraft === false ? list : [...list, null];
+  rows.forEach((a, activityIdx) => {
+    if (locked && !a) return;
+    const sets = a ? defaultGymRows(a.kind, a.rows, a.name) : [null];
+    sets.forEach((setRow, setIdx) => {
+      const tr = document.createElement('tr');
+      if (!a) tr.className = 'fl-gym-draft-row';
+      if (setIdx === 0) {
+        const tdActivity = document.createElement('td');
+        tdActivity.className = 'fl-gym-activity-merged';
+        tdActivity.rowSpan = sets.length;
+        const activityBox = document.createElement('div');
+        activityBox.className = 'fl-gym-activity-box';
+        const select = gymOptionSelect(a?.name || '', activityIdx, locked, onActivityChange);
+        activityBox.appendChild(select);
+        if (a && !locked) {
+          activityBox.appendChild(gymActionButton('×', 'Remove activity', () => onRemoveActivity(activityIdx), 'fl-gym-activity-delete'));
+        }
+        tdActivity.appendChild(activityBox);
+        tr.appendChild(tdActivity);
+      }
+      const td = document.createElement('td');
+      td.className = 'fl-gym-actions-col';
+      if (a) {
+        if (a.kind === 'cardio') {
+          ['speed', 'incline', 'time'].forEach((key) => {
+            const tdMetric = document.createElement('td');
+            tdMetric.className = 'fl-gym-metric-cell';
+            if (locked) {
+              tdMetric.textContent = setRow[key] || '—';
+            } else {
+              tdMetric.appendChild(gymMetricInput(setRow[key], key, (value) => onMetricChange(activityIdx, setIdx, key, value)));
+            }
+            tr.appendChild(tdMetric);
+          });
+        } else {
+          const tdSet = document.createElement('td');
+          tdSet.className = 'fl-gym-set-label';
+          tdSet.textContent = `Set ${setIdx + 1}`;
+          tr.appendChild(tdSet);
+          ['kg', 'rep'].forEach((key) => {
+            const tdMetric = document.createElement('td');
+            tdMetric.className = 'fl-gym-metric-cell';
+            if (locked) {
+              tdMetric.textContent = setRow[key] || '—';
+            } else {
+              tdMetric.appendChild(gymMetricInput(setRow[key], key, (value) => onMetricChange(activityIdx, setIdx, key, value)));
+            }
+            tr.appendChild(tdMetric);
+          });
+        }
+      } else {
+        for (let i = 0; i < 3; i++) {
+          const tdMetric = document.createElement('td');
+          tdMetric.textContent = '—';
+          tr.appendChild(tdMetric);
+        }
+      }
+      if (a && !locked) {
+        td.append(
+          gymActionButton('+', 'Add set row', () => onInsertSet(activityIdx, setIdx)),
+          gymActionButton('×', 'Delete set row', () => onRemoveSet(activityIdx, setIdx), 'fl-gym-set-delete'),
+        );
+      }
+      if (!a && !locked) {
+        td.appendChild(gymActionButton('○', 'Choose an activity', () => {
+          const select = tr.querySelector('select');
+          if (select) select.focus();
+        }));
+      }
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    });
+  });
+  table.appendChild(tbody);
+  const wrap = document.createElement('div');
+  wrap.className = 'fl-table-wrap';
+  wrap.appendChild(table);
+  container.appendChild(wrap);
+}
 
 function updateGymCustomNameVisibility() {
   const activity = selectedGymActivity();
   els.gymCustomName.hidden = !activity.custom;
 }
 
+function renderGymSummary(day) {
+  if (!els.gymSummary) return;
+  const info = gymDaySummary(day);
+  els.gymSummary.innerHTML = '';
+  els.gymSummary.className = 'fl-gym-summary fl-gym-summary-banner';
+  [
+    [String(info.activities), 'activity', '📋'],
+    [fmtNum(info.weightKg, 0), 'kg', '🏋'],
+    [fmtNum(info.weightReps, 0), 'rep', '🔁'],
+    [fmtNum(info.cardioMin, 0), 'min', '🏃'],
+  ].forEach(([value, label, icon]) => {
+    const item = document.createElement('span');
+    const strong = document.createElement('strong');
+    strong.textContent = String(value);
+    const small = document.createElement('small');
+    small.textContent = icon;
+    item.title = label;
+    item.append(strong, small);
+    els.gymSummary.appendChild(item);
+  });
+}
+
 function renderGym() {
   renderGymDateOptions();
+  renderGymPresetOptions();
   updateGymCustomNameVisibility();
   const all = loadGym();
   const day = gymDay(all, selectedGymDate);
+  renderGymSummary(day);
   renderGymSection(els.gymTable, day.activities, {
     locked: gymLocked,
-    note: day.note || '',
-    onNoteChange: (text) => setGymNote(selectedGymDate, text),
   });
+  renderGymSavedTime(day);
+  if (els.gymLockBtn) els.gymLockBtn.textContent = gymLocked ? '🔓 Modify' : '🔒 Save';
+  if (els.gymNoteShell) {
+    els.gymNoteShell.innerHTML = '';
+    els.gymNoteShell.appendChild(buildGymNoteField(day.note || '', (text) => setGymNote(selectedGymDate, text), gymLocked));
+  }
 }
 
 function clearGymDay() {
   const date = selectedGymDate || todayISO();
-  if (!confirm(`Clear GymLog for ${date}? Activities already logged will be removed.`)) return;
+  if (!confirm(`Reset GymLog for ${date}? Workout rows will return to one N/A activity.`)) return;
   const all = loadGym();
   delete all[date];
   saveGym(all);
@@ -1934,6 +2769,8 @@ els.gymActivity.addEventListener('change', () => {
 });
 els.gymLogBtn.addEventListener('click', addActivity);
 els.gymLockBtn.addEventListener('click', toggleGymLock);
+if (els.gymSaveFav) els.gymSaveFav.addEventListener('click', saveCurrentGymAsFavourite);
+if (els.gymPreset) els.gymPreset.addEventListener('change', () => applyGymFavourite(els.gymPreset.value));
 els.gymDate.addEventListener('change', () => {
   selectedGymDate = els.gymDate.value || todayISO();
   renderGym();
@@ -1941,7 +2778,7 @@ els.gymDate.addEventListener('change', () => {
 els.gymClearDay.addEventListener('click', clearGymDay);
 els.gymExportBtn.addEventListener('click', exportGymCSV);
 
-// ============ FoodLibrary tab ============
+// ============ Saved food data panel (hidden from navigation) ============
 
 const LIB_COLS = ['item', 'serving', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
 
@@ -1950,14 +2787,16 @@ function isHostLibraryEntry(entry) {
 }
 
 function renderLibrary() {
-  const lib = loadLibrary();
-  els.libraryCount.textContent = lib.length === 1 ? '1 item' : `${lib.length} items`;
+  const lib = loadLibrary().filter((entry) => !isHostLibraryEntry(entry));
+  const favs = loadGymFavs();
+  els.libraryCount.textContent = `${lib.length === 1 ? '1 food item' : `${lib.length} food items`} · ${favs.length}/5 gym favs`;
 
   const tbl = els.libraryTable;
   tbl.innerHTML = '';
 
   if (!lib.length) {
     els.libraryEmpty.hidden = false;
+    renderGymFavLibrary();
     return;
   }
   els.libraryEmpty.hidden = true;
@@ -1977,11 +2816,34 @@ function renderLibrary() {
 
   const tbody = document.createElement('tbody');
   lib.forEach((entry) => {
+    const hostEntry = isHostLibraryEntry(entry);
     const tr = document.createElement('tr');
     LIB_COLS.forEach((c) => {
       const td = document.createElement('td');
       const v = entry[c];
-      if (c === 'item' || c === 'serving') {
+      if (!hostEntry) {
+        const input = document.createElement('input');
+        input.className = 'fl-library-edit-input';
+        input.value = String(v ?? '');
+        if (!['item', 'serving'].includes(c)) {
+          input.type = 'number';
+          input.inputMode = 'decimal';
+          input.min = '0';
+          input.step = c === 'kcal' ? '1' : '0.1';
+          td.classList.add('fl-num');
+        }
+        input.addEventListener('change', () => {
+          const next = loadLibrary().map((x) => {
+            if (x.id !== entry.id) return x;
+            const raw = input.value.trim();
+            const value = ['item', 'serving'].includes(c) ? raw : num(raw);
+            return { ...x, [c]: value };
+          });
+          saveLibrary(next);
+          renderLibrary();
+        });
+        td.appendChild(input);
+      } else if (c === 'item' || c === 'serving') {
         td.textContent = String(v ?? '');
       } else {
         td.classList.add('fl-num');
@@ -1990,7 +2852,7 @@ function renderLibrary() {
       tr.appendChild(td);
     });
     const tdDel = document.createElement('td');
-    if (!isHostLibraryEntry(entry)) {
+    if (!hostEntry) {
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'fl-row-del-btn';
@@ -2007,10 +2869,59 @@ function renderLibrary() {
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
+  renderGymFavLibrary();
+}
+
+function renderGymFavLibrary() {
+  if (!els.gymFavList) return;
+  const favs = loadGymFavs();
+  els.gymFavList.innerHTML = '';
+  if (!favs.length) {
+    const empty = document.createElement('p');
+    empty.className = 'fl-empty';
+    empty.textContent = 'No gym favourites yet.';
+    els.gymFavList.appendChild(empty);
+    return;
+  }
+  favs.forEach((fav) => {
+    const card = document.createElement('article');
+    card.className = 'fl-gym-fav-card';
+    const head = document.createElement('header');
+    head.className = 'fl-gym-fav-row';
+    const input = document.createElement('input');
+    input.maxLength = 15;
+    input.value = fav.name || '';
+    input.addEventListener('change', () => {
+      const next = loadGymFavs().map((f) => f.id === fav.id ? { ...f, name: input.value.trim().slice(0, 15) || f.name } : f);
+      saveGymFavs(next);
+      renderGymPresetOptions();
+      renderGymFavLibrary();
+    });
+    const meta = document.createElement('span');
+    meta.textContent = `${(fav.activities || []).length} activities`;
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'fl-row-del-btn';
+    del.textContent = '×';
+    del.title = 'Delete favourite';
+    del.addEventListener('click', () => deleteGymFavourite(fav.id));
+    head.append(input, meta, del);
+    const tableShell = document.createElement('div');
+    tableShell.className = 'fl-gym-fav-table';
+    card.append(head, tableShell);
+    els.gymFavList.appendChild(card);
+    renderGymSection(tableShell, fav.activities || [], {
+      onActivityChange: (activityIdx, name) => setGymFavActivityAt(fav.id, activityIdx, name),
+      onMetricChange: (activityIdx, setIdx, key, value) => updateGymFavMetric(fav.id, activityIdx, setIdx, key, value),
+      onInsertSet: (activityIdx, setIdx) => insertGymFavSet(fav.id, activityIdx, setIdx),
+      onRemoveSet: (activityIdx, setIdx) => removeGymFavSet(fav.id, activityIdx, setIdx),
+      onRemoveActivity: (activityIdx) => removeGymFavActivity(fav.id, activityIdx),
+    });
+  });
 }
 
 els.libraryClear.addEventListener('click', () => {
-  if (!confirm("Clear user-added FoodLibrary items? Host items will remain.")) return;
+  if (!confirm("Clear user-added saved food items? Host items will remain.")) return;
   saveLibrary(loadLibrary().filter(isHostLibraryEntry));
   renderLibrary();
 });
@@ -2021,8 +2932,8 @@ const HIST_COLS = ['date', 'target', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
 
 function dayTotals(day) {
   const t = { kcal: 0, p: 0, f: 0, c: 0, su: 0, fb: 0 };
-  MEAL_SLOTS.forEach((slot) => {
-    const sub = sumItems((day[slot] && day[slot].items) || []);
+  dayMeals(day).forEach((meal) => {
+    const sub = sumItems(meal.items || []);
     NUMERIC_COLS.forEach((k) => { t[k] += sub[k]; });
   });
   return t;
@@ -2068,6 +2979,7 @@ function logDay() {
 }
 
 function renderHistory() {
+  if (!els.historyTable || !els.historyEmpty) return;
   const hist = loadHistory();
   const tbl = els.historyTable;
   tbl.innerHTML = '';
@@ -2126,11 +3038,13 @@ function renderHistory() {
   tbl.appendChild(tbody);
 }
 
-els.clearHistoryBtn.addEventListener('click', () => {
-  if (!confirm('Clear all Food History snapshots? This cannot be undone.')) return;
-  saveHistory([]);
-  renderHistory();
-});
+if (els.clearHistoryBtn) {
+  els.clearHistoryBtn.addEventListener('click', () => {
+    if (!confirm('Clear all Food History snapshots? This cannot be undone.')) return;
+    saveHistory([]);
+    renderHistory();
+  });
+}
 
 // ============ CSV export ============
 
@@ -2160,10 +3074,9 @@ function exportDailyCSV() {
   const target = null;
 
   const rows = [['date', 'meal', 'item', ...NUMERIC_COLS]];
-  MEAL_SLOTS.forEach((slot) => {
-    const items = (day[slot] && day[slot].items) || [];
-    items.forEach((it) => {
-      rows.push([date, MEAL_LABELS[slot], it.item,
+  dayMeals(day).forEach((meal) => {
+    (meal.items || []).forEach((it) => {
+      rows.push([date, meal.name || 'Meal', it.item,
         fmtNum(it.kcal, 0), fmtNum(it.p, 1), fmtNum(it.f, 1),
         fmtNum(it.c, 1), fmtNum(it.su, 1), fmtNum(it.fb, 1)]);
     });
@@ -2217,7 +3130,7 @@ function exportHistoryCSV() {
 }
 
 els.exportDailyBtn.addEventListener('click', exportDailyCSV);
-els.exportHistoryBtn.addEventListener('click', exportHistoryCSV);
+if (els.exportHistoryBtn) els.exportHistoryBtn.addEventListener('click', exportHistoryCSV);
 
 // ============ Authentication ============
 
@@ -2275,11 +3188,12 @@ async function syncToFirestore(category, data) {
 async function syncAllToFirestore() {
   if (!currentUser) return;
   console.info('[fitlog] migrating local data to cloud');
-  await syncToFirestore('settings', loadSettings());
+  await syncToFirestore('settings', settingsCloudPayload(loadSettings()));
   await syncToFirestore('library', loadLibrary());
   await syncToFirestore('dailyLog', loadDaily());
   await syncToFirestore('foodHistory', loadHistory());
   await syncToFirestore('gymLog', loadGym());
+  await syncToFirestore('gymFavorites', loadGymFavs());
   await syncToFirestore('profile', profileState);
 }
 
@@ -2309,7 +3223,7 @@ async function syncFromFirestore() {
       console.info(`[fitlog] sync: processing ${category}`);
       if (category === 'settings') {
         // settings (model, system prompt) — local wins; nothing to restore from cloud here.
-        // Legacy `apiKey` field in old docs is ignored (BYOK removed in Phase 3.4).
+        // Legacy cloud `apiKey` is ignored; BYOK stays local-only in this browser.
       } else if (category === 'library') {
         const local = loadLibrary();
         if (data.length > local.length) { saveLibrary(data); hasChanges = true; }
@@ -2326,6 +3240,9 @@ async function syncFromFirestore() {
         const merged = { ...local, ...data };
         saveGym(merged);
         hasChanges = true;
+      } else if (category === 'gymFavorites') {
+        const local = loadGymFavs();
+        if (Array.isArray(data) && data.length > local.length) { saveGymFavs(data); hasChanges = true; }
       } else if (category === 'profile') {
         profileState = { ...loadProfile(), ...data };
         saveProfile(profileState);
@@ -2367,12 +3284,12 @@ function updateProfileUI() {
       els.profileSync.textContent = '';
     }
   }
+  els.tabs.forEach((t) => { t.disabled = !!(currentUser && !profileComplete()); });
   loadProfileIntoUI();
 }
 
 function isProfileEmpty() {
-  const p = profileState || {};
-  return !(p.age && p.weight && p.height);
+  return !profileComplete();
 }
 
 // ============ Profile Metrics ============
@@ -2463,26 +3380,31 @@ function loadProfileIntoUI() {
 
 function saveProfileFromUI() {
   const genderRadio = document.querySelector('input[name="fl-profile-gender"]:checked');
-  profileState.gender = genderRadio ? genderRadio.value : 'female';
-  profileState.age = els.profileAge && els.profileAge.value ? Number(els.profileAge.value) : null;
-  profileState.weight = els.profileWeight && els.profileWeight.value ? Number(els.profileWeight.value) : null;
-  profileState.height = els.profileHeight && els.profileHeight.value ? Number(els.profileHeight.value) : null;
-  profileState.activityLevel = els.profileActivity ? (els.profileActivity.value || 'sedentary') : 'sedentary';
+  const next = {
+    ...profileState,
+    gender: genderRadio ? genderRadio.value : '',
+    age: els.profileAge && els.profileAge.value ? Number(els.profileAge.value) : null,
+    weight: els.profileWeight && els.profileWeight.value ? Number(els.profileWeight.value) : null,
+    height: els.profileHeight && els.profileHeight.value ? Number(els.profileHeight.value) : null,
+    activityLevel: els.profileActivity ? (els.profileActivity.value || '') : '',
+  };
+  if (!(next.gender && next.age && next.weight && next.height && next.activityLevel)) {
+    setSyncStatus('Fill all Body Metrics fields before saving');
+    return;
+  }
+  profileState = next;
   saveProfile(profileState);
   renderProfileSummary();
   renderTargetsTable();
   renderDaily();
+  updateProfileUI();
+  setSyncStatus('Body Metrics saved');
+  showTab('logging');
 }
 
 // ============ Profile input events ============
 
-document.querySelectorAll('input[name="fl-profile-gender"]').forEach((r) => {
-  r.addEventListener('change', saveProfileFromUI);
-});
-if (els.profileAge) els.profileAge.addEventListener('change', saveProfileFromUI);
-if (els.profileWeight) els.profileWeight.addEventListener('change', saveProfileFromUI);
-if (els.profileHeight) els.profileHeight.addEventListener('change', saveProfileFromUI);
-if (els.profileActivity) els.profileActivity.addEventListener('change', saveProfileFromUI);
+if (els.profileSaveMetrics) els.profileSaveMetrics.addEventListener('click', saveProfileFromUI);
 
 // Custom row inputs → auto-derive carb
 [els.customKcal, els.customP, els.customF].forEach((el) => {
@@ -2543,10 +3465,19 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 els.welcomeSigninBtn.addEventListener('click', signInWithGoogle);
+if (els.brandLogo) els.brandLogo.addEventListener('click', showBrandMotto);
+els.libraryLinks.forEach((btn) => btn.addEventListener('click', (ev) => {
+  ev.preventDefault();
+  showTab('library');
+}));
 els.headerAccount.addEventListener('click', () => showTab('profile'));
 els.signoutBtn.addEventListener('click', signOut);
 
 // ============ Init ============
+
+applyTheme(state.theme || DEFAULT_THEME, false);
+applyKoalaMode(state.koalaMode || DEFAULT_KOALA_MODE, false);
+loadSettingsIntoUI();
 
 // Initial tab state — actual visibility is governed by updateProfileUI based on auth.
 showTab('logging');
