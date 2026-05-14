@@ -15,7 +15,7 @@
   <button type="button" class="fl-brand-logo" id="fl-brand-logo">Fitlog</button>
   <div class="fl-header-auth" id="fl-header-auth" hidden>
     <button type="button" class="fl-theme-mini-btn" id="fl-header-theme-toggle" aria-label="Toggle light mode">💡</button>
-    <button type="button" class="fl-icon-btn fl-header-settings-btn" id="fl-settings-btn">Settings</button>
+    <button type="button" class="fl-icon-btn fl-header-settings-btn" id="fl-settings-btn" aria-label="Settings" title="Settings">⚙</button>
     <button type="button" class="fl-header-account" id="fl-header-account" aria-label="Open profile">
       <img id="fl-header-avatar" class="fl-header-avatar" alt="" />
       <span class="fl-header-name" id="fl-header-name"></span>
@@ -35,8 +35,9 @@
 </section>
 
 <nav class="fl-tabs" id="fl-tabs-nav" role="tablist" hidden>
-  <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true">FoodLog</button>
-  <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false">GymLog</button>
+  <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true"><span class="fl-tab-icon" aria-hidden="true">🌿</span><span>FoodLog</span></button>
+  <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true"><svg class="fl-dumbbell-svg" viewBox="0 0 32 20" focusable="false"><path d="M2 7h4v6H2V7Zm6-3h4v12H8V4Zm12 0h4v12h-4V4Zm6 3h4v6h-4V7ZM12 9h8v2h-8V9Z"/></svg></span><span>GymLog</span></button>
+  <button type="button" class="fl-tab" data-tab="momentum" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true">🔥</span><span>Momentum</span></button>
 </nav>
 
 <main id="fl-main" hidden>
@@ -73,7 +74,7 @@
         <span class="fl-image-hint">Photo</span>
       </label>
       <div class="fl-composer-input">
-        <textarea id="fl-input" rows="2" placeholder="Eat what lai?&#10;e.g. lunch is nasi lemak with ayam goreng, no skin, cham c kosong ..."></textarea>
+        <textarea id="fl-input" rows="2" placeholder="Add meal..."></textarea>
         <button type="button" class="fl-send-btn" id="fl-send-btn" aria-label="Estimate meal">🔎</button>
       </div>
     </div>
@@ -120,7 +121,7 @@
   </div>
   <p class="fl-empty" id="fl-library-empty" hidden>No saved food items yet — add some from FoodLog preview rows.</p>
   <section class="fl-library-gym">
-    <h3>Gym favourites</h3>
+    <h3>Gym presets</h3>
     <div id="fl-gym-fav-list"></div>
   </section>
 </section>
@@ -131,7 +132,7 @@
   <section class="fl-gym-summary" id="fl-gym-summary" aria-label="Workout summary"></section>
 
   <section class="fl-gym-entry" hidden>
-    <select id="fl-gym-activity" aria-label="Activity"></select>
+    <select id="fl-gym-activity" aria-label="Exercise"></select>
     <input type="text" id="fl-gym-custom-name" placeholder="Custom activity name" hidden />
     <button type="button" class="fl-row-edit-btn" id="fl-gym-log-btn">Add</button>
     <div class="fl-gym-filters" id="fl-gym-filters"></div>
@@ -143,28 +144,41 @@
       <div class="fl-log-title">
         <h2>KOALA GYM</h2>
         <select class="fl-daily-date" id="fl-gym-date" aria-label="Daily gym log date"></select>
-        <select class="fl-daily-date" id="fl-gym-preset" aria-label="Gym favourite preset">
-          <option value="">Preset</option>
-        </select>
       </div>
       <div class="fl-gym-save-box">
         <button type="button" class="fl-log-day-btn" id="fl-gym-lock-btn">🔒 Save</button>
         <small id="fl-gym-saved-time">Not saved yet</small>
       </div>
     </header>
-    <div class="fl-gym-section" id="fl-gym-table"></div>
-    <div class="fl-daily-actions">
-      <button type="button" class="fl-export-btn" id="fl-gym-export-btn">Export CSV</button>
-      <button type="button" class="fl-clear-day-btn" id="fl-gym-clear-day">Reset</button>
-      <input type="text" class="fl-gym-fav-input" id="fl-gym-fav-name" maxlength="15" placeholder="fav name" list="fl-gym-fav-options" />
-      <datalist id="fl-gym-fav-options"></datalist>
-      <button type="button" class="fl-export-btn" id="fl-gym-save-fav">Save as fav</button>
+    <div class="fl-gym-preset-row">
+      <select class="fl-daily-date" id="fl-gym-preset" aria-label="Gym preset">
+        <option value="">Preset</option>
+      </select>
     </div>
-    <small class="fl-gym-fav-note">Max 5 favourites.</small>
+    <div class="fl-gym-section" id="fl-gym-table"></div>
+    <div class="fl-gym-actions-block">
+      <div class="fl-daily-actions">
+        <button type="button" class="fl-export-btn" id="fl-gym-export-btn">Export CSV</button>
+        <button type="button" class="fl-clear-day-btn" id="fl-gym-clear-day">Reset</button>
+      </div>
+      <div class="fl-gym-preset-save-row">
+        <input type="text" class="fl-gym-fav-input" id="fl-gym-fav-name" maxlength="15" placeholder="Preset name" list="fl-gym-fav-options" />
+        <button type="button" class="fl-export-btn" id="fl-gym-save-fav">Save as preset</button>
+      </div>
+      <datalist id="fl-gym-fav-options"></datalist>
+      <small class="fl-gym-fav-note">Max 5 presets.</small>
+    </div>
   </section>
 
   <section class="fl-gym-note-shell" id="fl-gym-note-shell"></section>
   <a href="#userlibrary" class="fl-library-text-link fl-library-spaced-link" data-open-library>UserLibrary</a>
+</section>
+
+<!-- ============ Momentum tab ============ -->
+<section class="fl-panel" data-panel="momentum" role="tabpanel" hidden>
+  <section class="fl-momentum-summary" id="fl-momentum-summary" aria-label="Monthly momentum summary"></section>
+  <div class="fl-momentum-month" id="fl-momentum-month"></div>
+  <div class="fl-momentum-calendar" id="fl-momentum-calendar" aria-label="Monthly food and workout calendar"></div>
 </section>
 
 <!-- ============ Profile page (reachable only via header avatar) ============ -->

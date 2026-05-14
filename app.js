@@ -19,6 +19,7 @@ const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
 const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
 const KEY_GYM = `${STORAGE_PREFIX}_gymLog`;
 const KEY_GYM_FAVS = `${STORAGE_PREFIX}_gymFavorites`;
+const KEY_GYM_CUSTOMS = `${STORAGE_PREFIX}_gymCustomExercises`;
 const KEY_PROFILE = `${STORAGE_PREFIX}_profile`;
 
 const SUPPORTED_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
@@ -30,6 +31,7 @@ const ICON_SEARCH = '🔎';
 const ICON_DART = '🎯';
 const ICON_BULB = '💡';
 const ICON_DARK_BULB = '●';
+const ICON_FIRE = '🔥';
 
 // Fallback preference order. When the selected primary model 5xx's, try these
 // in order (skipping the primary). gemini-3-flash-preview is preferred because
@@ -85,6 +87,10 @@ const MEAL_HINTS = [
   ['snack', 'Snack'],
 ];
 const DAILY_DATE_WINDOW_DAYS = 30;
+const CUSTOM_WEIGHT_LABEL = 'Custom weight training';
+const CUSTOM_CARDIO_LABEL = 'Custom cardio';
+const MAX_GYM_CUSTOMS = 10;
+const GYM_ACTIVITY_DATALIST_ID = 'fl-gym-activity-options';
 const GYM_ACTIVITIES = [
   { group: 'Push Upper', kind: 'weight', name: 'Bench Press - barbell/dumbbell (decline)' },
   { group: 'Push Upper', kind: 'weight', name: 'Bench Press - barbell/dumbbell (flat)' },
@@ -420,6 +426,43 @@ function saveGymFavs(favs) {
   const clean = (Array.isArray(favs) ? favs : []).slice(0, 5);
   safeLS.setJSON(KEY_GYM_FAVS, clean);
   syncToFirestore('gymFavorites', clean);
+}
+function normalizeGymCustoms(customs) {
+  const seen = new Set();
+  const clean = [];
+  (Array.isArray(customs) ? customs : []).forEach((item) => {
+    const kind = item?.kind === 'cardio' ? 'cardio' : 'weight';
+    const name = String(item?.name || '').trim().slice(0, 50);
+    if (!name) return;
+    const key = `${kind}:${name.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    clean.push({ id: item?.id || uid(), kind, name, savedAt: item?.savedAt || new Date().toISOString() });
+  });
+  return clean.slice(0, MAX_GYM_CUSTOMS);
+}
+function loadGymCustoms() { return normalizeGymCustoms(safeLS.getJSON(KEY_GYM_CUSTOMS, [])); }
+function saveGymCustoms(customs) {
+  const clean = normalizeGymCustoms(customs);
+  safeLS.setJSON(KEY_GYM_CUSTOMS, clean);
+  syncToFirestore('gymCustomExercises', clean);
+}
+function saveGymCustomActivity(kind, name) {
+  const cleanKind = kind === 'cardio' ? 'cardio' : 'weight';
+  const cleanName = String(name || '').trim().slice(0, 50);
+  if (!cleanName) return null;
+  const current = loadGymCustoms();
+  const key = `${cleanKind}:${cleanName.toLowerCase()}`;
+  const existing = current.find((item) => `${item.kind}:${item.name.toLowerCase()}` === key);
+  const next = current.filter((item) => `${item.kind}:${item.name.toLowerCase()}` !== key);
+  next.unshift({
+    id: existing?.id || uid(),
+    kind: cleanKind,
+    name: cleanName,
+    savedAt: new Date().toISOString(),
+  });
+  saveGymCustoms(next.slice(0, MAX_GYM_CUSTOMS));
+  return { group: 'Custom', kind: cleanKind, name: cleanName, custom: true };
 }
 function loadProfile() {
   return safeLS.getJSON(KEY_PROFILE, {
@@ -830,6 +873,9 @@ const els = {
   gymFavOptions: $('#fl-gym-fav-options'),
   gymSaveFav: $('#fl-gym-save-fav'),
   gymFavList: $('#fl-gym-fav-list'),
+  momentumSummary: $('#fl-momentum-summary'),
+  momentumMonth: $('#fl-momentum-month'),
+  momentumCalendar: $('#fl-momentum-calendar'),
   signoutBtn: $('#fl-signout-btn'),
   profileAge: $('#fl-profile-age'),
   profileWeight: $('#fl-profile-weight'),
@@ -957,6 +1003,7 @@ function showTab(name) {
   els.panels.forEach((p) => { p.hidden = p.dataset.panel !== name; });
   if (name === 'library') renderLibrary();
   if (name === 'gym') renderGym();
+  if (name === 'momentum') renderMomentum();
   if (name === 'profile') updateProfileUI();
   if (name === 'settings') loadSettingsIntoUI();
 }
@@ -2025,7 +2072,7 @@ function blankGymRow(kind) {
 }
 
 function suggestedGymRows(kind, name = '') {
-  if (kind === 'cardio') return [{ speed: '6', incline: '0', time: '20' }, { speed: '6', incline: '0', time: '20' }, { speed: '6', incline: '0', time: '20' }];
+  if (kind === 'cardio') return [{ speed: '6', incline: '0', time: '20' }];
   const lower = String(name).toLowerCase();
   const kg = /leg press|squat|deadlift|hip thrust/.test(lower) ? '40'
     : /bench|row|pulldown|press/.test(lower) ? '20'
@@ -2037,15 +2084,70 @@ function suggestedGymRows(kind, name = '') {
 function defaultGymRows(kind, rows = [], name = '') {
   const normalized = normalizeGymRows(Array.isArray(rows) ? rows : [], kind);
   if (!normalized.length) return suggestedGymRows(kind, name);
-  while (normalized.length < 3) {
-    const seed = normalized[normalized.length - 1] || blankGymRow(kind);
-    normalized.push({ ...seed });
-  }
   return normalized;
 }
 
 function gymActivityByName(name) {
-  return GYM_ACTIVITIES.find((a) => a.name === name) || null;
+  const clean = String(name || '').trim();
+  const custom = loadGymCustoms().find((a) => a.name === clean);
+  if (custom) return { group: 'Custom', kind: custom.kind, name: custom.name, custom: true };
+  return GYM_ACTIVITIES.find((a) => a.name === clean) || null;
+}
+
+function gymActivityOptions() {
+  return [
+    { group: 'Custom', kind: 'custom-weight', name: CUSTOM_WEIGHT_LABEL, customMode: 'weight' },
+    { group: 'Custom', kind: 'custom-cardio', name: CUSTOM_CARDIO_LABEL, customMode: 'cardio' },
+    ...loadGymCustoms().map((a) => ({ group: 'Custom', kind: a.kind, name: a.name, custom: true })),
+    ...GYM_ACTIVITIES,
+  ];
+}
+
+function ensureGymActivityDatalist() {
+  let list = document.getElementById(GYM_ACTIVITY_DATALIST_ID);
+  if (!list) {
+    list = document.createElement('datalist');
+    list.id = GYM_ACTIVITY_DATALIST_ID;
+    document.body.appendChild(list);
+  }
+  list.innerHTML = '';
+  gymActivityOptions().forEach((a) => {
+    const opt = document.createElement('option');
+    opt.value = a.name;
+    opt.label = a.group === 'Custom' ? `Custom · ${a.kind === 'cardio' || a.customMode === 'cardio' ? 'cardio' : 'weight'}` : a.group;
+    list.appendChild(opt);
+  });
+  return list;
+}
+
+function parseGymActivityInput(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const customPrefixes = [
+    { label: CUSTOM_WEIGHT_LABEL, kind: 'weight' },
+    { label: CUSTOM_CARDIO_LABEL, kind: 'cardio' },
+  ];
+  for (const item of customPrefixes) {
+    if (raw === item.label) return { customMode: item.kind, name: '' };
+    const prefix = `${item.label}:`;
+    if (raw.toLowerCase().startsWith(prefix.toLowerCase())) {
+      return { customMode: item.kind, name: raw.slice(prefix.length).trim() };
+    }
+  }
+  return gymActivityByName(raw);
+}
+
+function resolveGymActivityInput(value) {
+  const parsed = parseGymActivityInput(value);
+  if (!parsed) return null;
+  if (parsed.customMode) {
+    let name = parsed.name;
+    if (!name) name = window.prompt('Custom exercise name') || '';
+    const saved = saveGymCustomActivity(parsed.customMode, name);
+    if (saved) ensureGymActivityDatalist();
+    return saved;
+  }
+  return parsed;
 }
 
 function touchGymDay(day) {
@@ -2099,18 +2201,24 @@ function appendActivityOptgroup(label, matches) {
 }
 
 function renderGymActivityOptions() {
-  els.gymActivity.innerHTML = '<option value="" disabled selected>— Select activity —</option>';
+  els.gymActivity.innerHTML = '<option value="" disabled selected>Add exercise...</option>';
 
   // 1) Custom always first
   const custom = document.createElement('optgroup');
   custom.label = 'Custom';
   [
-    ['custom-weight:', 'Custom weight activity'],
-    ['custom-cardio:', 'Custom cardio activity'],
+    ['custom-weight:', CUSTOM_WEIGHT_LABEL],
+    ['custom-cardio:', CUSTOM_CARDIO_LABEL],
   ].forEach(([value, label]) => {
     const opt = document.createElement('option');
     opt.value = value;
     opt.textContent = label;
+    custom.appendChild(opt);
+  });
+  loadGymCustoms().forEach((a) => {
+    const opt = document.createElement('option');
+    opt.value = `${a.kind}:${a.name}`;
+    opt.textContent = a.name;
     custom.appendChild(opt);
   });
   els.gymActivity.appendChild(custom);
@@ -2188,6 +2296,7 @@ function addActivity() {
     showGymValidation('Type a custom activity name first.');
     return;
   }
+  if (activity.custom) saveGymCustomActivity(activity.kind, activity.name);
   const date = selectedGymDate || todayISO();
   const all = loadGym();
   const day = gymDay(all, date);
@@ -2200,7 +2309,11 @@ function addActivity() {
   });
   all[date] = day;
   saveGym(all);
-  if (activity.custom) els.gymCustomName.value = '';
+  if (activity.custom) {
+    els.gymCustomName.value = '';
+    renderGymActivityOptions();
+    ensureGymActivityDatalist();
+  }
   renderGym();
 }
 
@@ -2363,10 +2476,10 @@ function cloneGymActivities(activities) {
 
 function saveCurrentGymAsFavourite() {
   const name = String(els.gymFavName?.value || '').trim().slice(0, 15);
-  if (!name) { showGymValidation('Name favourite first.'); return; }
+  if (!name) { showGymValidation('Name preset first.'); return; }
   const day = gymDay(loadGym(), selectedGymDate);
   const activities = (day.activities || []).filter((a) => String(a?.name || '').trim());
-  if (!activities.length) { showGymValidation('Add a workout before saving favourite.'); return; }
+  if (!activities.length) { showGymValidation('Add a workout before saving preset.'); return; }
   const current = loadGymFavs();
   const existing = current.find((f) => String(f.name || '').toLowerCase() === name.toLowerCase());
   const favs = current.filter((f) => String(f.name || '').toLowerCase() !== name.toLowerCase());
@@ -2377,7 +2490,7 @@ function saveCurrentGymAsFavourite() {
     savedAt: new Date().toISOString(),
   });
   if (!existing && favs.length > 5) {
-    showGymValidation('Max 5 favourites. Delete one in UserLibrary first.');
+    showGymValidation('Max 5 presets. Delete one in UserLibrary first.');
     return;
   }
   saveGymFavs(favs.slice(0, 5));
@@ -2421,16 +2534,16 @@ function updateGymFavourite(favId, updater, rerender = true) {
 }
 
 function setGymFavActivityAt(favId, activityIdx, name) {
-  const preset = gymActivityByName(name);
+  const preset = resolveGymActivityInput(name);
   if (!preset) return;
   updateGymFavourite(favId, (fav) => {
     fav.activities = Array.isArray(fav.activities) ? fav.activities : [];
     const current = fav.activities[activityIdx];
     fav.activities[activityIdx] = {
       id: current?.id || uid(),
-      name,
+      name: preset.name,
       kind: preset.kind,
-      rows: defaultGymRows(preset.kind, preset.kind === current?.kind ? current.rows : [], name),
+      rows: defaultGymRows(preset.kind, preset.kind === current?.kind ? current.rows : [], preset.name),
     };
   });
 }
@@ -2475,44 +2588,64 @@ function gymOptionSelect(selectedName, rowIdx, locked, onChange = setGymActivity
   const select = document.createElement('select');
   select.className = 'fl-gym-row-activity';
   select.disabled = locked;
+
   const empty = document.createElement('option');
   empty.value = '';
-  empty.textContent = 'N/A activity';
+  empty.textContent = 'Add exercise';
   select.appendChild(empty);
-  ['Push Upper', 'Push Lower', 'Pull Upper', 'Pull Lower', 'Cardio'].forEach((group) => {
-    const matches = GYM_ACTIVITIES.filter((a) => a.group === group);
-    if (!matches.length) return;
-    const og = document.createElement('optgroup');
-    og.label = group;
-    matches.forEach((a) => {
+
+  const appendGroup = (label, options) => {
+    if (!options.length) return;
+    const group = document.createElement('optgroup');
+    group.label = label;
+    options.forEach((a) => {
       const opt = document.createElement('option');
-      opt.value = a.name;
+      opt.value = a.customMode ? a.name : a.name;
       opt.textContent = a.name;
-      og.appendChild(opt);
+      group.appendChild(opt);
     });
-    select.appendChild(og);
+    select.appendChild(group);
+  };
+
+  appendGroup('Custom', [
+    { name: CUSTOM_WEIGHT_LABEL, customMode: 'weight' },
+    { name: CUSTOM_CARDIO_LABEL, customMode: 'cardio' },
+    ...loadGymCustoms(),
+  ]);
+  ['Push Upper', 'Push Lower', 'Pull Upper', 'Pull Lower', 'Cardio'].forEach((group) => {
+    appendGroup(group, GYM_ACTIVITIES.filter((a) => a.group === group));
   });
+
   select.value = selectedName || '';
-  select.addEventListener('change', () => onChange(rowIdx, select.value));
+  select.addEventListener('change', () => {
+    if (select.value) onChange(rowIdx, select.value);
+  });
   return select;
 }
 
 function setGymActivityAt(activityIdx, name) {
   if (gymLocked || !name) return;
-  const preset = gymActivityByName(name);
-  if (!preset) return;
+  const preset = resolveGymActivityInput(name);
+  if (!preset) {
+    showGymValidation('Choose an exercise from the list, or use Custom weight training: name / Custom cardio: name.');
+    renderGym();
+    return;
+  }
+  showGymValidation(null);
   const all = loadGym();
   const day = gymDay(all, selectedGymDate);
   day.activities = Array.isArray(day.activities) ? day.activities : [];
   const current = day.activities[activityIdx];
   day.activities[activityIdx] = {
     id: current?.id || uid(),
-    name,
+    name: preset.name,
     kind: preset.kind,
-    rows: defaultGymRows(preset.kind, preset.kind === current?.kind ? current.rows : [], name),
+    rows: defaultGymRows(preset.kind, preset.kind === current?.kind ? current.rows : [], preset.name),
   };
   all[selectedGymDate] = touchGymDay(day);
   saveGym(all);
+  renderGymActivityOptions();
+  ensureGymActivityDatalist();
   renderGym();
 }
 
@@ -2615,11 +2748,31 @@ function renderGymSection(container, activities, opts = {}) {
   const onRemoveActivity = opts.onRemoveActivity || removeGymActivity;
   const table = document.createElement('table');
   table.className = 'fl-gym-koala-table';
+  const colgroup = document.createElement('colgroup');
+  ['fl-gym-activity-col', 'fl-gym-metric-col', 'fl-gym-metric-col', 'fl-gym-metric-col', 'fl-gym-actions-width-col'].forEach((className) => {
+    const col = document.createElement('col');
+    col.className = className;
+    colgroup.appendChild(col);
+  });
+  table.appendChild(colgroup);
   const thead = document.createElement('thead');
   const head = document.createElement('tr');
-  ['Activity', 'Set / Speed', 'Kg / Incline', 'Rep / Min', ''].forEach((label) => {
+  [
+    ['Exercise'],
+    ['Set', 'Speed'],
+    ['Kg', 'Incline'],
+    ['Rep', 'Min'],
+    [''],
+  ].forEach((parts) => {
     const th = document.createElement('th');
-    th.textContent = label;
+    if (parts.length === 1) {
+      th.textContent = parts[0];
+    } else {
+      parts.forEach((part, idx) => {
+        if (idx) th.appendChild(document.createElement('br'));
+        th.appendChild(document.createTextNode(part));
+      });
+    }
     head.appendChild(th);
   });
   thead.appendChild(head);
@@ -2642,6 +2795,11 @@ function renderGymSection(container, activities, opts = {}) {
         activityBox.appendChild(select);
         if (a && !locked) {
           activityBox.appendChild(gymActionButton('×', 'Remove activity', () => onRemoveActivity(activityIdx), 'fl-gym-activity-delete'));
+        } else {
+          const spacer = document.createElement('span');
+          spacer.className = 'fl-gym-activity-action-spacer';
+          spacer.setAttribute('aria-hidden', 'true');
+          activityBox.appendChild(spacer);
         }
         tdActivity.appendChild(activityBox);
         tr.appendChild(tdActivity);
@@ -2691,8 +2849,8 @@ function renderGymSection(container, activities, opts = {}) {
       }
       if (!a && !locked) {
         td.appendChild(gymActionButton('○', 'Choose an activity', () => {
-          const select = tr.querySelector('select');
-          if (select) select.focus();
+          const picker = tr.querySelector('.fl-gym-row-activity');
+          if (picker) picker.focus();
         }));
       }
       tr.appendChild(td);
@@ -2717,18 +2875,22 @@ function renderGymSummary(day) {
   els.gymSummary.innerHTML = '';
   els.gymSummary.className = 'fl-gym-summary fl-gym-summary-banner';
   [
-    [String(info.activities), 'activity', '📋'],
-    [fmtNum(info.weightKg, 0), 'kg', '🏋'],
+    [String(info.activities), 'exe', '📋'],
+    [fmtNum(info.weightKg, 0), 'kg', 'dumbbell'],
     [fmtNum(info.weightReps, 0), 'rep', '🔁'],
     [fmtNum(info.cardioMin, 0), 'min', '🏃'],
   ].forEach(([value, label, icon]) => {
     const item = document.createElement('span');
+    const top = document.createElement('b');
     const strong = document.createElement('strong');
     strong.textContent = String(value);
-    const small = document.createElement('small');
-    small.textContent = icon;
+    const iconEl = icon === 'dumbbell' ? createDumbbellIcon('fl-gym-summary-dumbbell') : document.createElement('small');
+    if (icon !== 'dumbbell') iconEl.textContent = icon;
+    const caption = document.createElement('em');
+    caption.textContent = label;
     item.title = label;
-    item.append(strong, small);
+    top.append(strong, iconEl);
+    item.append(top, caption);
     els.gymSummary.appendChild(item);
   });
 }
@@ -2736,6 +2898,7 @@ function renderGymSummary(day) {
 function renderGym() {
   renderGymDateOptions();
   renderGymPresetOptions();
+  ensureGymActivityDatalist();
   updateGymCustomNameVisibility();
   const all = loadGym();
   const day = gymDay(all, selectedGymDate);
@@ -2751,9 +2914,128 @@ function renderGym() {
   }
 }
 
+function monthISO(year, monthIndex, day) {
+  const m = String(monthIndex + 1).padStart(2, '0');
+  const d = String(day).padStart(2, '0');
+  return `${year}-${m}-${d}`;
+}
+
+function createDumbbellIcon(extraClass = '') {
+  const span = document.createElement('span');
+  span.className = `fl-dumbbell-icon ${extraClass}`.trim();
+  span.setAttribute('aria-hidden', 'true');
+  span.innerHTML = '<svg class="fl-dumbbell-svg" viewBox="0 0 32 20" focusable="false"><path d="M2 7h4v6H2V7Zm6-3h4v12H8V4Zm12 0h4v12h-4V4Zm6 3h4v6h-4V7ZM12 9h8v2h-8V9Z"/></svg>';
+  return span;
+}
+
+function gymHasWorkout(day) {
+  return gymDaySummary(day).activities > 0;
+}
+
+function renderMomentumStat(value, icon, label) {
+  const item = document.createElement('span');
+  const top = document.createElement('b');
+  const strong = document.createElement('strong');
+  strong.textContent = String(value);
+  top.appendChild(strong);
+  if (icon === 'dumbbell') {
+    top.appendChild(createDumbbellIcon('fl-momentum-dumbbell'));
+  } else {
+    const small = document.createElement('small');
+    small.textContent = icon;
+    top.appendChild(small);
+  }
+  const caption = document.createElement('em');
+  caption.textContent = label;
+  item.append(top, caption);
+  return item;
+}
+
+function renderMomentum() {
+  if (!els.momentumSummary || !els.momentumMonth || !els.momentumCalendar) return;
+  const now = new Date();
+  const year = now.getFullYear();
+  const monthIndex = now.getMonth();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const firstWeekday = new Date(year, monthIndex, 1).getDay();
+  const daily = loadDaily();
+  const gym = loadGym();
+  const foodByDate = {};
+  const workoutByDate = {};
+  let kcalSum = 0;
+  let kcalDays = 0;
+  let workoutDays = 0;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const iso = monthISO(year, monthIndex, day);
+    const kcal = dayTotals(getDay(daily, iso)).kcal;
+    foodByDate[iso] = kcal;
+    if (kcal > 0) {
+      kcalSum += kcal;
+      kcalDays += 1;
+    }
+    const hasWorkout = gymHasWorkout(gym[iso]);
+    workoutByDate[iso] = hasWorkout;
+    if (hasWorkout) workoutDays += 1;
+  }
+
+  els.momentumSummary.innerHTML = '';
+  els.momentumSummary.className = 'fl-gym-summary fl-momentum-summary';
+  els.momentumSummary.append(
+    renderMomentumStat(kcalDays ? fmtNum(kcalSum / kcalDays, 0) : '0', ICON_LEAF, 'avg kcal'),
+    renderMomentumStat(String(workoutDays), 'dumbbell', 'workout'),
+  );
+
+  els.momentumMonth.textContent = `${String(monthIndex + 1).padStart(2, '0')}/${year}`;
+  els.momentumCalendar.innerHTML = '';
+  const table = document.createElement('table');
+  table.className = 'fl-momentum-table';
+  const thead = document.createElement('thead');
+  const head = document.createElement('tr');
+  ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((label) => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    head.appendChild(th);
+  });
+  thead.appendChild(head);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  let currentDay = 1;
+  for (let week = 0; week < 6 && currentDay <= daysInMonth; week++) {
+    const tr = document.createElement('tr');
+    for (let weekday = 0; weekday < 7; weekday++) {
+      const td = document.createElement('td');
+      if ((week === 0 && weekday < firstWeekday) || currentDay > daysInMonth) {
+        td.className = 'fl-momentum-empty-day';
+        tr.appendChild(td);
+        continue;
+      }
+      const iso = monthISO(year, monthIndex, currentDay);
+      if (iso === todayISO()) td.classList.add('fl-momentum-today');
+      const dayNum = document.createElement('strong');
+      dayNum.textContent = String(currentDay);
+      const food = document.createElement('span');
+      food.className = 'fl-momentum-food-line';
+      food.textContent = foodByDate[iso] > 0 ? `${fmtNum(foodByDate[iso], 0)} ${ICON_LEAF}` : `- ${ICON_LEAF}`;
+      const gymLine = document.createElement('span');
+      gymLine.className = 'fl-momentum-gym-line';
+      const mark = document.createElement('span');
+      mark.textContent = workoutByDate[iso] ? '✓' : '-';
+      gymLine.append(mark, createDumbbellIcon('fl-momentum-cell-dumbbell'));
+      td.append(dayNum, food, gymLine);
+      tr.appendChild(td);
+      currentDay += 1;
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  els.momentumCalendar.appendChild(table);
+}
+
 function clearGymDay() {
   const date = selectedGymDate || todayISO();
-  if (!confirm(`Reset GymLog for ${date}? Workout rows will return to one N/A activity.`)) return;
+  if (!confirm(`Reset GymLog for ${date}? Workout rows will return to Add exercise.`)) return;
   const all = loadGym();
   delete all[date];
   saveGym(all);
@@ -2789,7 +3071,7 @@ function isHostLibraryEntry(entry) {
 function renderLibrary() {
   const lib = loadLibrary().filter((entry) => !isHostLibraryEntry(entry));
   const favs = loadGymFavs();
-  els.libraryCount.textContent = `${lib.length === 1 ? '1 food item' : `${lib.length} food items`} · ${favs.length}/5 gym favs`;
+  els.libraryCount.textContent = `${lib.length === 1 ? '1 food item' : `${lib.length} food items`} · ${favs.length}/5 gym presets`;
 
   const tbl = els.libraryTable;
   tbl.innerHTML = '';
@@ -2879,7 +3161,7 @@ function renderGymFavLibrary() {
   if (!favs.length) {
     const empty = document.createElement('p');
     empty.className = 'fl-empty';
-    empty.textContent = 'No gym favourites yet.';
+    empty.textContent = 'No gym presets yet.';
     els.gymFavList.appendChild(empty);
     return;
   }
@@ -2903,7 +3185,7 @@ function renderGymFavLibrary() {
     del.type = 'button';
     del.className = 'fl-row-del-btn';
     del.textContent = '×';
-    del.title = 'Delete favourite';
+    del.title = 'Delete preset';
     del.addEventListener('click', () => deleteGymFavourite(fav.id));
     head.append(input, meta, del);
     const tableShell = document.createElement('div');
@@ -3194,6 +3476,7 @@ async function syncAllToFirestore() {
   await syncToFirestore('foodHistory', loadHistory());
   await syncToFirestore('gymLog', loadGym());
   await syncToFirestore('gymFavorites', loadGymFavs());
+  await syncToFirestore('gymCustomExercises', loadGymCustoms());
   await syncToFirestore('profile', profileState);
 }
 
@@ -3243,6 +3526,9 @@ async function syncFromFirestore() {
       } else if (category === 'gymFavorites') {
         const local = loadGymFavs();
         if (Array.isArray(data) && data.length > local.length) { saveGymFavs(data); hasChanges = true; }
+      } else if (category === 'gymCustomExercises') {
+        const local = loadGymCustoms();
+        if (Array.isArray(data) && data.length > local.length) { saveGymCustoms(data); hasChanges = true; }
       } else if (category === 'profile') {
         profileState = { ...loadProfile(), ...data };
         saveProfile(profileState);
@@ -3255,6 +3541,7 @@ async function syncFromFirestore() {
       renderHistory();
       renderLibrary();
       renderGym();
+      renderMomentum();
       loadProfileIntoUI();
     }
     setSyncStatus('Synced from cloud');
