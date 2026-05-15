@@ -89,6 +89,7 @@ const MEAL_HINTS = [
 const DAILY_DATE_WINDOW_DAYS = 30;
 const CUSTOM_WEIGHT_LABEL = 'Custom weight training';
 const CUSTOM_CARDIO_LABEL = 'Custom cardio';
+const MAX_LIBRARY_ITEMS = 30;
 const MAX_GYM_CUSTOMS = 10;
 const GYM_ACTIVITY_DATALIST_ID = 'fl-gym-activity-options';
 const GYM_ACTIVITIES = [
@@ -401,8 +402,15 @@ function loadLibrary() {
   return merged;
 }
 function saveLibrary(lib) {
-  safeLS.setJSON(KEY_LIBRARY, lib);
-  syncToFirestore('library', lib);
+  const hostEntries = [];
+  const userEntries = [];
+  (Array.isArray(lib) ? lib : []).forEach((entry) => {
+    if (isHostLibraryEntry(entry)) hostEntries.push(entry);
+    else userEntries.push(entry);
+  });
+  const clean = [...hostEntries, ...userEntries.slice(0, MAX_LIBRARY_ITEMS)];
+  safeLS.setJSON(KEY_LIBRARY, clean);
+  syncToFirestore('library', clean);
 }
 function loadDaily() { return safeLS.getJSON(KEY_DAILY, {}); }
 function saveDaily(d) {
@@ -463,6 +471,24 @@ function saveGymCustomActivity(kind, name) {
   });
   saveGymCustoms(next.slice(0, MAX_GYM_CUSTOMS));
   return { group: 'Custom', kind: cleanKind, name: cleanName, custom: true };
+}
+
+function gymCustomByNameKind(name, kind) {
+  const cleanName = String(name || '').trim();
+  const cleanKind = kind === 'cardio' ? 'cardio' : 'weight';
+  return loadGymCustoms().find((item) => item.kind === cleanKind && item.name === cleanName) || null;
+}
+
+function deleteGymCustomExercise(kind, name) {
+  const custom = gymCustomByNameKind(name, kind);
+  if (!custom) return;
+  if (!confirm(`Delete "${custom.name}" from custom exercise dropdown? Existing workout rows will stay unchanged.`)) return;
+  const key = `${custom.kind}:${custom.name.toLowerCase()}`;
+  saveGymCustoms(loadGymCustoms().filter((item) => `${item.kind}:${item.name.toLowerCase()}` !== key));
+  renderGymActivityOptions();
+  ensureGymActivityDatalist();
+  renderGym();
+  renderLibrary();
 }
 function loadProfile() {
   return safeLS.getJSON(KEY_PROFILE, {
@@ -800,6 +826,8 @@ let foodImages = [null, null]; // ephemeral compressed images for the next AI es
 let koalaMode = state.koalaMode || DEFAULT_KOALA_MODE; // j = preview-confirm, p = direct log
 let activeGymFilter = 'all'; // 'all' | 'Push' | 'Pull' | 'Upper' | 'Lower' | 'Cardio' | 'Custom'
 let gymLocked = false; // when true, gym tables render read-only
+let gymDraftAll = null;
+let gymDirtyDates = new Set();
 
 // ============ DOM refs ============
 
@@ -845,16 +873,18 @@ const els = {
   dailyDate: $('#fl-daily-date'),
   dailyTable: $('#fl-daily-table'),
   logDayBtn: $('#fl-log-day-btn'),
-  exportDailyBtn: $('#fl-export-daily-btn'),
   clearDayBtn: $('#fl-clear-day-btn'),
   historyTable: $('#fl-history-table'),
   historyEmpty: $('#fl-history-empty'),
   exportHistoryBtn: $('#fl-export-history-btn'),
   clearHistoryBtn: $('#fl-clear-history-btn'),
   libraryCount: $('#fl-library-count'),
-  libraryClear: $('#fl-library-clear'),
+  libraryFoodCount: $('#fl-library-food-count'),
   libraryTable: $('#fl-library-table'),
   libraryEmpty: $('#fl-library-empty'),
+  gymCustomCount: $('#fl-gym-custom-count'),
+  gymCustomList: $('#fl-gym-custom-list'),
+  gymFavCount: $('#fl-gym-fav-count'),
   gymActivity: $('#fl-gym-activity'),
   gymCustomName: $('#fl-gym-custom-name'),
   gymLogBtn: $('#fl-gym-log-btn'),
@@ -866,7 +896,6 @@ const els = {
   gymSavedTime: $('#fl-gym-saved-time'),
   gymNoteShell: $('#fl-gym-note-shell'),
   gymClearDay: $('#fl-gym-clear-day'),
-  gymExportBtn: $('#fl-gym-export-btn'),
   gymFilters: $('#fl-gym-filters'),
   gymPreset: $('#fl-gym-preset'),
   gymFavName: $('#fl-gym-fav-name'),
@@ -919,6 +948,11 @@ function showValidation(msg) {
   if (!msg) { els.validation.hidden = true; els.validation.textContent = ''; return; }
   els.validation.hidden = false;
   els.validation.textContent = msg;
+}
+
+function visiblePanelName() {
+  const panel = els.panels.find((p) => !p.hidden);
+  return panel?.dataset.panel || 'logging';
 }
 
 function profileComplete() {
@@ -994,6 +1028,11 @@ function showTab(name) {
     name = 'profile';
     setSyncStatus('Save metrics to unlock FitLog');
   }
+  if (visiblePanelName() === 'gym' && name !== 'gym' && gymHasUnsavedChanges()) {
+    const leave = confirm('GymLog has unsaved changes. Leave without saving?');
+    if (!leave) return false;
+    resetGymDraft();
+  }
   els.tabs.forEach((t) => {
     const active = t.dataset.tab === name;
     t.setAttribute('aria-selected', active ? 'true' : 'false');
@@ -1001,11 +1040,13 @@ function showTab(name) {
     t.disabled = !!(currentUser && !profileComplete());
   });
   els.panels.forEach((p) => { p.hidden = p.dataset.panel !== name; });
+  if (name === 'logging') renderDaily();
   if (name === 'library') renderLibrary();
   if (name === 'gym') renderGym();
   if (name === 'momentum') renderMomentum();
   if (name === 'profile') updateProfileUI();
   if (name === 'settings') loadSettingsIntoUI();
+  return true;
 }
 
 // ============ Settings page ============
@@ -1125,7 +1166,15 @@ els.testBtn.addEventListener('click', testConnection);
 
 // ============ Tabs ============
 
-els.tabs.forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+els.tabs.forEach((t) => t.addEventListener('click', () => {
+  const target = t.dataset.tab;
+  if (target === 'logging') {
+    selectedDailyDate = todayISO();
+  } else if (target === 'gym') {
+    selectedGymDate = todayISO();
+  }
+  showTab(target);
+}));
 
 // ============ Ephemeral image uploads ============
 
@@ -1585,6 +1634,15 @@ function addRowToLibrary(row, btn) {
       btn.textContent = 'Saved item';
       btn.disabled = true;
     }
+    return;
+  }
+  const userCount = lib.filter((entry) => !isHostLibraryEntry(entry)).length;
+  if (userCount >= MAX_LIBRARY_ITEMS) {
+    if (btn) {
+      btn.textContent = 'Max 30 items';
+      btn.disabled = true;
+    }
+    alert('Custom Food is limited to 30 items. Delete one in UserLibrary before adding another.');
     return;
   }
 
@@ -2167,6 +2225,53 @@ function gymDay(all, date) {
   return { activities: [], note: '' };
 }
 
+function cloneGymLog(log) {
+  return JSON.parse(JSON.stringify(log || {}));
+}
+
+function gymLogSignature(log) {
+  return JSON.stringify(log || {});
+}
+
+function gymDraftData() {
+  if (!gymDraftAll) gymDraftAll = cloneGymLog(loadGym());
+  return gymDraftAll;
+}
+
+function resetGymDraft() {
+  gymDraftAll = cloneGymLog(loadGym());
+  gymDirtyDates = new Set();
+}
+
+function gymHasUnsavedChanges() {
+  return !!gymDraftAll && gymLogSignature(gymDraftAll) !== gymLogSignature(loadGym());
+}
+
+function markGymDraftChanged(date = selectedGymDate) {
+  if (date) gymDirtyDates.add(date);
+  renderGymSavedTime(gymDay(gymDraftData(), selectedGymDate));
+}
+
+function saveGymDraft(lockAfter = false) {
+  const all = gymDraftData();
+  const dates = new Set(gymDirtyDates);
+  if (lockAfter) dates.add(selectedGymDate);
+  if (!dates.size && gymHasUnsavedChanges()) dates.add(selectedGymDate);
+  dates.forEach((date) => {
+    const day = gymDay(all, date);
+    if (isGymDayEmpty(day)) {
+      delete all[date];
+    } else {
+      all[date] = touchGymDay(day);
+    }
+  });
+  saveGym(cloneGymLog(all));
+  resetGymDraft();
+  gymLocked = !!lockAfter;
+  showGymValidation(null);
+  renderGym();
+}
+
 function isGymDayEmpty(day) {
   const noActs = !day || !Array.isArray(day.activities) || !day.activities.some((a) => String(a?.name || '').trim());
   const noNote = !day || !day.note || !String(day.note).trim();
@@ -2174,15 +2279,15 @@ function isGymDayEmpty(day) {
 }
 
 function setGymNote(date, text) {
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, date);
   day.note = String(text || '');
   if (isGymDayEmpty(day)) {
     delete all[date];
   } else {
-    all[date] = touchGymDay(day);
+    all[date] = day;
   }
-  saveGym(all);
+  markGymDraftChanged(date);
 }
 
 const WEIGHT_GROUP_ORDER = ['Push Upper', 'Push Lower', 'Pull Upper', 'Pull Lower'];
@@ -2266,7 +2371,7 @@ function renderGymDateOptions() {
 function renderGymPresetOptions() {
   const favs = loadGymFavs();
   if (els.gymPreset) {
-    els.gymPreset.innerHTML = '<option value="">Preset</option>';
+    els.gymPreset.innerHTML = '<option value="">Load Preset</option>';
     favs.forEach((fav) => {
       const opt = document.createElement('option');
       opt.value = fav.id;
@@ -2298,7 +2403,7 @@ function addActivity() {
   }
   if (activity.custom) saveGymCustomActivity(activity.kind, activity.name);
   const date = selectedGymDate || todayISO();
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, date);
   day.activities = day.activities || [];
   day.activities.push({
@@ -2308,7 +2413,7 @@ function addActivity() {
     rows: suggestedGymRows(activity.kind, activity.name),
   });
   all[date] = day;
-  saveGym(all);
+  markGymDraftChanged(date);
   if (activity.custom) {
     els.gymCustomName.value = '';
     renderGymActivityOptions();
@@ -2320,35 +2425,35 @@ function addActivity() {
 function updateSetValue(activityIdx, setIdx, key, value) {
   if (gymLocked) return;
   const date = selectedGymDate;
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, date);
   const a = day.activities[activityIdx];
   if (!a) return;
   if (!a.rows[setIdx]) a.rows[setIdx] = {};
   a.rows[setIdx][key] = String(value);
-  all[date] = touchGymDay(day);
-  saveGym(all);
+  all[date] = day;
+  markGymDraftChanged(date);
 }
 
 function insertSetBelow(activityIdx, setIdx) {
   if (gymLocked) return;
   const date = selectedGymDate;
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, date);
   const a = day.activities[activityIdx];
   if (!a) return;
   a.rows = defaultGymRows(a.kind, a.rows, a.name);
   const seed = a.rows[setIdx] || blankGymRow(a.kind);
   a.rows.splice(setIdx + 1, 0, { ...seed });
-  all[date] = touchGymDay(day);
-  saveGym(all);
+  all[date] = day;
+  markGymDraftChanged(date);
   renderGym();
 }
 
 function removeSet(activityIdx, setIdx) {
   if (gymLocked) return;
   const date = selectedGymDate;
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, date);
   const a = day.activities[activityIdx];
   if (!a) return;
@@ -2358,23 +2463,18 @@ function removeSet(activityIdx, setIdx) {
     // Last set removed — drop the activity itself.
     day.activities.splice(activityIdx, 1);
   }
-  if (isGymDayEmpty(day)) delete all[date]; else all[date] = touchGymDay(day);
-  saveGym(all);
+  if (isGymDayEmpty(day)) delete all[date]; else all[date] = day;
+  markGymDraftChanged(date);
   renderGym();
 }
 
 function toggleGymLock() {
-  gymLocked = !gymLocked;
   if (gymLocked) {
-    const all = loadGym();
-    const day = gymDay(all, selectedGymDate);
-    if (!isGymDayEmpty(day)) {
-      all[selectedGymDate] = touchGymDay(day);
-      saveGym(all);
-    }
+    gymLocked = false;
+    renderGym();
+    return;
   }
-  els.gymLockBtn.textContent = gymLocked ? '🔓 Modify' : '🔒 Save';
-  renderGym();
+  saveGymDraft(true);
 }
 
 function gymMetricText(activity) {
@@ -2432,11 +2532,12 @@ function formatGymSavedTime(iso) {
   if (!iso) return 'Not saved yet';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return 'Not saved yet';
-  return `Saved ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  return `Logged ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 function renderGymSavedTime(day) {
-  if (els.gymSavedTime) els.gymSavedTime.textContent = formatGymSavedTime(day?.savedAt);
+  if (!els.gymSavedTime) return;
+  els.gymSavedTime.textContent = gymHasUnsavedChanges() ? 'Unsaved changes' : formatGymSavedTime(day?.savedAt);
 }
 
 function gymDaySummary(day) {
@@ -2477,7 +2578,7 @@ function cloneGymActivities(activities) {
 function saveCurrentGymAsFavourite() {
   const name = String(els.gymFavName?.value || '').trim().slice(0, 15);
   if (!name) { showGymValidation('Name preset first.'); return; }
-  const day = gymDay(loadGym(), selectedGymDate);
+  const day = gymDay(gymDraftData(), selectedGymDate);
   const activities = (day.activities || []).filter((a) => String(a?.name || '').trim());
   if (!activities.length) { showGymValidation('Add a workout before saving preset.'); return; }
   const current = loadGymFavs();
@@ -2501,13 +2602,14 @@ function saveCurrentGymAsFavourite() {
 }
 
 function applyGymFavourite(favId) {
+  if (gymLocked) return;
   const fav = loadGymFavs().find((f) => f.id === favId);
   if (!fav) return;
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, selectedGymDate);
   day.activities = cloneGymActivities(fav.activities);
-  all[selectedGymDate] = touchGymDay(day);
-  saveGym(all);
+  all[selectedGymDate] = day;
+  markGymDraftChanged(selectedGymDate);
   renderGym();
 }
 
@@ -2607,11 +2709,16 @@ function gymOptionSelect(selectedName, rowIdx, locked, onChange = setGymActivity
     select.appendChild(group);
   };
 
-  appendGroup('Custom', [
+  const customOptions = [
     { name: CUSTOM_WEIGHT_LABEL, customMode: 'weight' },
     { name: CUSTOM_CARDIO_LABEL, customMode: 'cardio' },
     ...loadGymCustoms(),
-  ]);
+  ];
+  appendGroup('Custom', customOptions);
+  const hasSelectedOption = !selectedName
+    || customOptions.some((a) => a.name === selectedName)
+    || GYM_ACTIVITIES.some((a) => a.name === selectedName);
+  if (!hasSelectedOption) appendGroup('Current', [{ name: selectedName }]);
   ['Push Upper', 'Push Lower', 'Pull Upper', 'Pull Lower', 'Cardio'].forEach((group) => {
     appendGroup(group, GYM_ACTIVITIES.filter((a) => a.group === group));
   });
@@ -2625,25 +2732,28 @@ function gymOptionSelect(selectedName, rowIdx, locked, onChange = setGymActivity
 
 function setGymActivityAt(activityIdx, name) {
   if (gymLocked || !name) return;
-  const preset = resolveGymActivityInput(name);
+  const all = gymDraftData();
+  const day = gymDay(all, selectedGymDate);
+  day.activities = Array.isArray(day.activities) ? day.activities : [];
+  const current = day.activities[activityIdx];
+  let preset = resolveGymActivityInput(name);
+  if (!preset && current?.name === name && current.kind) {
+    preset = { name: current.name, kind: current.kind };
+  }
   if (!preset) {
     showGymValidation('Choose an exercise from the list, or use Custom weight training: name / Custom cardio: name.');
     renderGym();
     return;
   }
   showGymValidation(null);
-  const all = loadGym();
-  const day = gymDay(all, selectedGymDate);
-  day.activities = Array.isArray(day.activities) ? day.activities : [];
-  const current = day.activities[activityIdx];
   day.activities[activityIdx] = {
     id: current?.id || uid(),
     name: preset.name,
     kind: preset.kind,
     rows: defaultGymRows(preset.kind, preset.kind === current?.kind ? current.rows : [], preset.name),
   };
-  all[selectedGymDate] = touchGymDay(day);
-  saveGym(all);
+  all[selectedGymDate] = day;
+  markGymDraftChanged(selectedGymDate);
   renderGymActivityOptions();
   ensureGymActivityDatalist();
   renderGym();
@@ -2651,25 +2761,24 @@ function setGymActivityAt(activityIdx, name) {
 
 function updateGymActivityMetric(activityIdx, setIdx, key, value) {
   if (gymLocked) return;
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, selectedGymDate);
   const a = day.activities?.[activityIdx];
   if (!a) return;
   a.rows = defaultGymRows(a.kind, a.rows, a.name);
   if (!a.rows[setIdx]) a.rows[setIdx] = blankGymRow(a.kind);
   a.rows[setIdx][key] = String(value);
-  all[selectedGymDate] = touchGymDay(day);
-  saveGym(all);
-  renderGymSavedTime(day);
+  all[selectedGymDate] = day;
+  markGymDraftChanged(selectedGymDate);
 }
 
 function removeGymActivity(activityIdx) {
   if (gymLocked) return;
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, selectedGymDate);
   day.activities = (day.activities || []).filter((_, idx) => idx !== activityIdx);
-  if (isGymDayEmpty(day)) delete all[selectedGymDate]; else all[selectedGymDate] = touchGymDay(day);
-  saveGym(all);
+  if (isGymDayEmpty(day)) delete all[selectedGymDate]; else all[selectedGymDate] = day;
+  markGymDraftChanged(selectedGymDate);
   renderGym();
 }
 
@@ -2796,10 +2905,10 @@ function renderGymSection(container, activities, opts = {}) {
         if (a && !locked) {
           activityBox.appendChild(gymActionButton('×', 'Remove activity', () => onRemoveActivity(activityIdx), 'fl-gym-activity-delete'));
         } else {
-          const spacer = document.createElement('span');
-          spacer.className = 'fl-gym-activity-action-spacer';
-          spacer.setAttribute('aria-hidden', 'true');
-          activityBox.appendChild(spacer);
+          const removeSpacer = document.createElement('span');
+          removeSpacer.className = 'fl-gym-activity-action-spacer';
+          removeSpacer.setAttribute('aria-hidden', 'true');
+          activityBox.appendChild(removeSpacer);
         }
         tdActivity.appendChild(activityBox);
         tr.appendChild(tdActivity);
@@ -2900,14 +3009,21 @@ function renderGym() {
   renderGymPresetOptions();
   ensureGymActivityDatalist();
   updateGymCustomNameVisibility();
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, selectedGymDate);
   renderGymSummary(day);
   renderGymSection(els.gymTable, day.activities, {
     locked: gymLocked,
   });
   renderGymSavedTime(day);
-  if (els.gymLockBtn) els.gymLockBtn.textContent = gymLocked ? '🔓 Modify' : '🔒 Save';
+  if (els.gymLockBtn) {
+    els.gymLockBtn.textContent = gymLocked ? '🔓 Unlock' : '🔒 Lock';
+    els.gymLockBtn.title = gymLocked ? 'Unlock GymLog for editing' : 'Lock and log GymLog';
+    els.gymLockBtn.setAttribute('aria-pressed', gymLocked ? 'true' : 'false');
+    els.gymLockBtn.classList.toggle('fl-gym-unlock-btn', gymLocked);
+  }
+  if (els.gymPreset) els.gymPreset.disabled = gymLocked;
+  if (els.gymClearDay) els.gymClearDay.disabled = gymLocked;
   if (els.gymNoteShell) {
     els.gymNoteShell.innerHTML = '';
     els.gymNoteShell.appendChild(buildGymNoteField(day.note || '', (text) => setGymNote(selectedGymDate, text), gymLocked));
@@ -2961,10 +3077,10 @@ function renderMomentum() {
   const daily = loadDaily();
   const gym = loadGym();
   const foodByDate = {};
-  const workoutByDate = {};
+  const exerciseByDate = {};
   let kcalSum = 0;
   let kcalDays = 0;
-  let workoutDays = 0;
+  let activeDays = 0;
 
   for (let day = 1; day <= daysInMonth; day++) {
     const iso = monthISO(year, monthIndex, day);
@@ -2974,16 +3090,16 @@ function renderMomentum() {
       kcalSum += kcal;
       kcalDays += 1;
     }
-    const hasWorkout = gymHasWorkout(gym[iso]);
-    workoutByDate[iso] = hasWorkout;
-    if (hasWorkout) workoutDays += 1;
+    const exerciseCount = gymDaySummary(gym[iso]).activities;
+    exerciseByDate[iso] = exerciseCount;
+    if (exerciseCount > 0) activeDays += 1;
   }
 
   els.momentumSummary.innerHTML = '';
   els.momentumSummary.className = 'fl-gym-summary fl-momentum-summary';
   els.momentumSummary.append(
     renderMomentumStat(kcalDays ? fmtNum(kcalSum / kcalDays, 0) : '0', ICON_LEAF, 'avg kcal'),
-    renderMomentumStat(String(workoutDays), 'dumbbell', 'workout'),
+    renderMomentumStat(String(activeDays), ICON_FIRE, 'active day'),
   );
 
   els.momentumMonth.textContent = `${String(monthIndex + 1).padStart(2, '0')}/${year}`;
@@ -3017,12 +3133,10 @@ function renderMomentum() {
       dayNum.textContent = String(currentDay);
       const food = document.createElement('span');
       food.className = 'fl-momentum-food-line';
-      food.textContent = foodByDate[iso] > 0 ? `${fmtNum(foodByDate[iso], 0)} ${ICON_LEAF}` : `- ${ICON_LEAF}`;
+      food.textContent = foodByDate[iso] > 0 ? `${fmtNum(foodByDate[iso], 0)} ${ICON_LEAF}` : '-';
       const gymLine = document.createElement('span');
       gymLine.className = 'fl-momentum-gym-line';
-      const mark = document.createElement('span');
-      mark.textContent = workoutByDate[iso] ? '✓' : '-';
-      gymLine.append(mark, createDumbbellIcon('fl-momentum-cell-dumbbell'));
+      gymLine.textContent = exerciseByDate[iso] > 0 ? `${exerciseByDate[iso]} ${ICON_FIRE}` : '-';
       td.append(dayNum, food, gymLine);
       tr.appendChild(td);
       currentDay += 1;
@@ -3034,11 +3148,12 @@ function renderMomentum() {
 }
 
 function clearGymDay() {
+  if (gymLocked) return;
   const date = selectedGymDate || todayISO();
   if (!confirm(`Reset GymLog for ${date}? Workout rows will return to Add exercise.`)) return;
-  const all = loadGym();
+  const all = gymDraftData();
   delete all[date];
-  saveGym(all);
+  markGymDraftChanged(date);
   renderGym();
 }
 
@@ -3058,7 +3173,11 @@ els.gymDate.addEventListener('change', () => {
   renderGym();
 });
 els.gymClearDay.addEventListener('click', clearGymDay);
-els.gymExportBtn.addEventListener('click', exportGymCSV);
+window.addEventListener('beforeunload', (ev) => {
+  if (!gymHasUnsavedChanges()) return;
+  ev.preventDefault();
+  ev.returnValue = '';
+});
 
 // ============ Saved food data panel (hidden from navigation) ============
 
@@ -3071,13 +3190,19 @@ function isHostLibraryEntry(entry) {
 function renderLibrary() {
   const lib = loadLibrary().filter((entry) => !isHostLibraryEntry(entry));
   const favs = loadGymFavs();
-  els.libraryCount.textContent = `${lib.length === 1 ? '1 food item' : `${lib.length} food items`} · ${favs.length}/5 gym presets`;
+  const customs = loadGymCustoms();
+  els.libraryCount.textContent = `${lib.length}/${MAX_LIBRARY_ITEMS} food · ${customs.length}/${MAX_GYM_CUSTOMS} exercise · ${favs.length}/5 presets`;
+  if (els.libraryFoodCount) els.libraryFoodCount.textContent = `${lib.length}/${MAX_LIBRARY_ITEMS}`;
+  if (els.gymCustomCount) els.gymCustomCount.textContent = `${customs.length}/${MAX_GYM_CUSTOMS}`;
+  if (els.gymFavCount) els.gymFavCount.textContent = `${favs.length}/5`;
+  document.querySelectorAll('.fl-library-section').forEach((section) => { section.open = false; });
 
   const tbl = els.libraryTable;
   tbl.innerHTML = '';
 
   if (!lib.length) {
     els.libraryEmpty.hidden = false;
+    renderGymCustomLibrary();
     renderGymFavLibrary();
     return;
   }
@@ -3151,7 +3276,38 @@ function renderLibrary() {
     tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
+  renderGymCustomLibrary();
   renderGymFavLibrary();
+}
+
+function renderGymCustomLibrary() {
+  if (!els.gymCustomList) return;
+  const customs = loadGymCustoms();
+  if (els.gymCustomCount) els.gymCustomCount.textContent = `${customs.length}/${MAX_GYM_CUSTOMS}`;
+  els.gymCustomList.innerHTML = '';
+  if (!customs.length) {
+    const empty = document.createElement('p');
+    empty.className = 'fl-empty';
+    empty.textContent = 'No custom exercises yet.';
+    els.gymCustomList.appendChild(empty);
+    return;
+  }
+  customs.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'fl-gym-custom-row';
+    const name = document.createElement('span');
+    name.textContent = item.name;
+    const kind = document.createElement('small');
+    kind.textContent = item.kind === 'cardio' ? 'Cardio' : 'Weight';
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'fl-row-del-btn fl-gym-custom-delete';
+    del.textContent = '×';
+    del.title = 'Delete custom exercise';
+    del.addEventListener('click', () => deleteGymCustomExercise(item.kind, item.name));
+    row.append(name, kind, del);
+    els.gymCustomList.appendChild(row);
+  });
 }
 
 function renderGymFavLibrary() {
@@ -3201,12 +3357,6 @@ function renderGymFavLibrary() {
     });
   });
 }
-
-els.libraryClear.addEventListener('click', () => {
-  if (!confirm("Clear user-added saved food items? Host items will remain.")) return;
-  saveLibrary(loadLibrary().filter(isHostLibraryEntry));
-  renderLibrary();
-});
 
 // ============ Food History ============
 
@@ -3376,7 +3526,7 @@ function exportDailyCSV() {
 
 function exportGymCSV() {
   const date = selectedGymDate || todayISO();
-  const all = loadGym();
+  const all = gymDraftData();
   const day = gymDay(all, date);
   const rows = [['date', 'type', 'activity_idx', 'activity', 'set_idx', 'kg', 'rep', 'speed', 'incline', 'time_min']];
   (day.activities || []).forEach((a, ai) => {
@@ -3411,7 +3561,6 @@ function exportHistoryCSV() {
   downloadCSV('fitlog_food_history.csv', rows);
 }
 
-els.exportDailyBtn.addEventListener('click', exportDailyCSV);
 if (els.exportHistoryBtn) els.exportHistoryBtn.addEventListener('click', exportHistoryCSV);
 
 // ============ Authentication ============

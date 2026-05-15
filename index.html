@@ -98,7 +98,6 @@
   <section class="fl-daily">
     <div class="fl-meal-stack" id="fl-daily-table"></div>
     <div class="fl-daily-actions">
-      <button type="button" class="fl-export-btn" id="fl-export-daily-btn">Export CSV</button>
       <button type="button" class="fl-clear-day-btn" id="fl-clear-day-btn">Reset</button>
     </div>
     <div class="fl-page-bottom-controls">
@@ -116,16 +115,22 @@
       <h2>UserLibrary</h2>
       <span class="fl-library-count" id="fl-library-count">0 items</span>
     </div>
-    <button type="button" class="fl-library-clear" id="fl-library-clear">Clear saved user items</button>
   </div>
-  <div class="fl-table-wrap">
-    <table class="fl-table" id="fl-library-table"></table>
-  </div>
-  <p class="fl-empty" id="fl-library-empty" hidden>No saved food items yet — add some from FoodLog preview rows.</p>
-  <section class="fl-library-gym">
-    <h3>Gym presets</h3>
+  <details class="fl-library-section" id="fl-library-food-section">
+    <summary>Custom Food <span id="fl-library-food-count">0/30</span></summary>
+    <div class="fl-table-wrap">
+      <table class="fl-table" id="fl-library-table"></table>
+    </div>
+    <p class="fl-empty" id="fl-library-empty" hidden>No custom food yet — add items from FoodLog preview rows.</p>
+  </details>
+  <details class="fl-library-section" id="fl-library-exercise-section">
+    <summary>Custom Exercise <span id="fl-gym-custom-count">0/10</span></summary>
+    <div id="fl-gym-custom-list"></div>
+  </details>
+  <details class="fl-library-section" id="fl-library-preset-section">
+    <summary>Gym Preset <span id="fl-gym-fav-count">0/5</span></summary>
     <div id="fl-gym-fav-list"></div>
-  </section>
+  </details>
 </section>
 
 <!-- ============ GymLog tab ============ -->
@@ -147,27 +152,26 @@
         <h2>KOALA GYM</h2>
       </div>
       <div class="fl-gym-save-box">
-        <button type="button" class="fl-log-day-btn" id="fl-gym-lock-btn">🔒 Save</button>
         <small id="fl-gym-saved-time">Not saved yet</small>
+        <button type="button" class="fl-log-day-btn" id="fl-gym-lock-btn">🔒 Lock</button>
       </div>
     </header>
-    <div class="fl-gym-preset-row">
-      <select class="fl-daily-date" id="fl-gym-preset" aria-label="Gym preset">
-        <option value="">Preset</option>
-      </select>
-    </div>
     <div class="fl-gym-section" id="fl-gym-table"></div>
     <div class="fl-gym-actions-block">
-      <div class="fl-daily-actions">
-        <button type="button" class="fl-export-btn" id="fl-gym-export-btn">Export CSV</button>
+      <div class="fl-gym-quick-actions-row">
+        <select class="fl-daily-date" id="fl-gym-preset" aria-label="Gym preset">
+          <option value="">Load Preset</option>
+        </select>
         <button type="button" class="fl-clear-day-btn" id="fl-gym-clear-day">Reset</button>
       </div>
       <div class="fl-gym-preset-save-row">
-        <input type="text" class="fl-gym-fav-input" id="fl-gym-fav-name" maxlength="15" placeholder="Preset name" list="fl-gym-fav-options" />
-        <button type="button" class="fl-export-btn" id="fl-gym-save-fav">Save as preset</button>
+        <div class="fl-gym-save-preset-field">
+          <input type="text" class="fl-gym-fav-input" id="fl-gym-fav-name" maxlength="15" placeholder="Save as preset..." list="fl-gym-fav-options" />
+          <button type="button" class="fl-export-btn" id="fl-gym-save-fav">Save</button>
+        </div>
+        <small class="fl-gym-fav-note">Max 5 presets.</small>
       </div>
       <datalist id="fl-gym-fav-options"></datalist>
-      <small class="fl-gym-fav-note">Max 5 presets.</small>
     </div>
   </section>
 
@@ -182,7 +186,7 @@
 <section class="fl-panel" data-panel="momentum" role="tabpanel" hidden>
   <section class="fl-momentum-summary" id="fl-momentum-summary" aria-label="Monthly momentum summary"></section>
   <div class="fl-momentum-month" id="fl-momentum-month"></div>
-  <div class="fl-momentum-calendar" id="fl-momentum-calendar" aria-label="Monthly food and workout calendar"></div>
+  <div class="fl-momentum-calendar" id="fl-momentum-calendar" aria-label="Monthly food and active day calendar"></div>
 </section>
 
 <!-- ============ Profile page (reachable only via header avatar) ============ -->
