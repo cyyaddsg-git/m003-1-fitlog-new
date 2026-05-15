@@ -610,6 +610,13 @@ body[data-theme="light"] .fl-welcome-card {
   border-color: #d4c9ba;
   color: var(--fl-fg);
 }
+body[data-theme="light"] .fl-momentum-table td.fl-momentum-today {
+  border-color: #d97706;
+  background:
+    linear-gradient(180deg, rgba(217, 119, 6, 0.24), rgba(251, 191, 36, 0.12)),
+    #fff8e7;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.28), inset 0 1px 0 rgba(255,255,255,0.82);
+}
 body[data-theme="light"] .fl-stomach-meal-row,
 body[data-theme="light"] .fl-meal-item,
 body[data-theme="light"] .fl-gym-activity-card,
@@ -1448,6 +1455,15 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   line-height: 1;
   text-transform: uppercase;
 }
+.fl-gym-summary-banner span {
+  flex-direction: row;
+  gap: 6px;
+  min-width: 96px;
+  white-space: nowrap;
+}
+.fl-gym-summary-banner b {
+  gap: 5px;
+}
 .fl-gym-head {
   display: flex;
   align-items: center;
@@ -2109,6 +2125,7 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   background: var(--fl-panel);
   color: var(--fl-fg);
   padding: 6px 5px;
+  text-align: right;
   vertical-align: top;
 }
 .fl-momentum-table td.fl-momentum-empty-day {
@@ -2142,6 +2159,7 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
 .fl-momentum-gym-line {
   display: flex !important;
   align-items: center;
+  justify-content: flex-end;
   gap: 3px;
   margin-top: 5px;
 }
@@ -2193,7 +2211,8 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   .fl-gym-summary {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    column-gap: 8px;
+    row-gap: 18px;
     min-height: 0;
     padding: 10px;
   }
