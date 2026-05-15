@@ -60,7 +60,6 @@
     <div class="fl-log-head">
       <div class="fl-log-title">
         <h2>KOALA TABLE</h2>
-        <select class="fl-daily-date" id="fl-daily-date" aria-label="Daily log date"></select>
       </div>
       <div class="fl-koala-mode" role="group" aria-label="Koala logging mode">
         <button type="button" class="fl-mode-btn fl-active" id="fl-mode-j" data-mode="j" aria-label="J Koala">J</button>
@@ -102,7 +101,10 @@
       <button type="button" class="fl-export-btn" id="fl-export-daily-btn">Export CSV</button>
       <button type="button" class="fl-clear-day-btn" id="fl-clear-day-btn">Reset</button>
     </div>
-    <a href="#userlibrary" class="fl-library-text-link fl-library-spaced-link" data-open-library>UserLibrary</a>
+    <div class="fl-page-bottom-controls">
+      <label class="fl-edit-day-row">Edit previous day: <select class="fl-daily-date" id="fl-daily-date" aria-label="Daily log date"></select></label>
+      <a href="#userlibrary" class="fl-library-text-link" data-open-library>Manage UserLibrary</a>
+    </div>
   </section>
 
 </section>
@@ -143,7 +145,6 @@
     <header class="fl-gym-head">
       <div class="fl-log-title">
         <h2>KOALA GYM</h2>
-        <select class="fl-daily-date" id="fl-gym-date" aria-label="Daily gym log date"></select>
       </div>
       <div class="fl-gym-save-box">
         <button type="button" class="fl-log-day-btn" id="fl-gym-lock-btn">🔒 Save</button>
@@ -171,7 +172,10 @@
   </section>
 
   <section class="fl-gym-note-shell" id="fl-gym-note-shell"></section>
-  <a href="#userlibrary" class="fl-library-text-link fl-library-spaced-link" data-open-library>UserLibrary</a>
+  <div class="fl-page-bottom-controls">
+    <label class="fl-edit-day-row">Edit previous day: <select class="fl-daily-date" id="fl-gym-date" aria-label="Daily gym log date"></select></label>
+    <a href="#userlibrary" class="fl-library-text-link" data-open-library>Manage UserLibrary</a>
+  </div>
 </section>
 
 <!-- ============ Momentum tab ============ -->

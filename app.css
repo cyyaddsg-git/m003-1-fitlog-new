@@ -568,6 +568,7 @@ body[data-theme="light"] .fl-koala-mode,
 body[data-theme="light"] .fl-ai-card textarea,
 body[data-theme="light"] .fl-image-drop,
 body[data-theme="light"] .fl-log-title .fl-daily-date,
+body[data-theme="light"] .fl-edit-day-row .fl-daily-date,
 body[data-theme="light"] .fl-kcal-target-picker {
   background: var(--fl-panel);
   color: var(--fl-fg);
@@ -1197,7 +1198,7 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   background: transparent;
   color: var(--fl-muted);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   padding: 2px 4px;
   cursor: pointer;
   text-decoration: none;
@@ -1210,6 +1211,30 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   color: var(--fl-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+.fl-page-bottom-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2em;
+  margin-top: 3.6em;
+  margin-bottom: 2.4em;
+  text-align: center;
+}
+.fl-edit-day-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--fl-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+.fl-edit-day-row .fl-daily-date {
+  max-width: 142px;
+  min-height: 30px;
+  background: var(--fl-bg-subtle);
+  color: var(--fl-fg);
 }
 .fl-clear-history-btn {
   align-self: flex-start;
