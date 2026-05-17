@@ -3265,11 +3265,24 @@ function renderGymSummary(day) {
   status.className = 'fl-kcal-remain';
   if (info.move === 0) {
     status.textContent = 'BURN THE ZERO. GO 🏃';
+  } else if (info.move < 50) {
+    status.textContent = 'LOOK UP IN THE SKY ☁️';
+  } else if (info.move <= 100) {
+    status.textContent = "IT'S A BIRD, IT'S A PLANE ✈️";
+  } else if (info.move < 150) {
+    status.textContent = 'BRING OUT YOUR BOSS 🔫';
   } else if (info.move < 200) {
     status.textContent = 'BURNING LIKE FIRE 🔥';
   } else {
-    status.textContent = 'MASSIVE BURN! EQUAL RECOVERY. 🧘';
+    status.textContent = 'MASSIVE BURN. EQUAL RECOVERY. 🧘';
   }
+
+  const bar = document.createElement('div');
+  bar.className = 'fl-kcal-bar fl-gym-move-bar';
+  const fill = document.createElement('span');
+  fill.style.width = `${Math.max(0, Math.min(100, (info.move / 200) * 100))}%`;
+  if (info.move >= 200) fill.className = 'fl-over';
+  bar.appendChild(fill);
 
   const metrics = document.createElement('div');
   metrics.className = 'fl-macro-line';
@@ -3294,7 +3307,7 @@ function renderGymSummary(day) {
     item.append(iconEl, labelEl, valueEl);
     metrics.appendChild(item);
   });
-  els.gymSummary.append(value, status, metrics);
+  els.gymSummary.append(value, status, bar, metrics);
 }
 
 function renderGym() {

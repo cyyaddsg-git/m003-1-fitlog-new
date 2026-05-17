@@ -420,8 +420,11 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   margin-top: 3px;
   display: block;
 }
+.fl-gym-dashboard .fl-gym-move-bar {
+  margin-top: 14px;
+}
 .fl-gym-dashboard .fl-macro-line {
-  margin-top: 18px;
+  margin-top: 12px;
 }
 .fl-gym-macro-dumbbell {
   width: 13px;
