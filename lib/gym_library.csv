@@ -1,0 +1,33 @@
+group,kind,name,types
+Push Upper,weight,Bench Press,barbell/dumbbell|machine|Smith machine
+Push Upper,weight,Chest Fly,barbell/dumbbell|cable|machine (pec deck)
+Push Upper,weight,Dip,bodyweight|assisted machine
+Push Upper,weight,Front Raise,barbell/dumbbell|cable
+Push Upper,weight,Lateral Raise,barbell/dumbbell|cable|machine
+Push Upper,weight,Push-Up,bodyweight
+Push Upper,weight,Shoulder Press,barbell/dumbbell|machine|Smith machine
+Push Upper,weight,Skull Crusher,barbell/dumbbell
+Push Upper,weight,Tricep Extension,barbell/dumbbell|cable|machine
+Push Upper,weight,Tricep Pushdown,cable
+Push Lower,weight,Calf Raise,barbell/dumbbell|machine
+Push Lower,weight,Hip Thrust,barbell/dumbbell|machine
+Push Lower,weight,Leg Extension,machine
+Push Lower,weight,Leg Press,machine
+Push Lower,weight,Lunge,barbell/dumbbell
+Push Lower,weight,Squat,barbell/dumbbell|machine (hack)|Smith machine
+Pull Upper,weight,Bicep Curl,barbell/dumbbell|cable|machine
+Pull Upper,weight,Face Pull - cable,cable
+Pull Upper,weight,Lat Pulldown,cable|machine
+Pull Upper,weight,Pull-Up,bodyweight|assisted machine
+Pull Upper,weight,Pullover,barbell/dumbbell|cable
+Pull Upper,weight,Reverse Fly,barbell/dumbbell|cable|machine (rear delt)
+Pull Upper,weight,Row,barbell/dumbbell|cable (seated)|machine|T-bar
+Pull Upper,weight,Shrug,barbell/dumbbell
+Pull Lower,weight,Deadlift,barbell/dumbbell|Smith machine|trap bar
+Pull Lower,weight,Romanian Deadlift,barbell/dumbbell
+Pull Lower,weight,Good Morning,barbell/dumbbell
+Pull Lower,weight,Leg Curl,machine
+Cardio,cardio,Treadmill,
+Cardio,cardio,Cycling,
+Cardio,cardio,Rowing Machine,
+Cardio,cardio,Elliptical,

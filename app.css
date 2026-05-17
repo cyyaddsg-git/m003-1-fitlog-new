@@ -344,6 +344,16 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   color: var(--fl-ink-soft);
   font-variant-numeric: tabular-nums;
 }
+.fl-kcal-unit {
+  display: inline-block;
+  margin-left: 7px;
+  color: var(--fl-muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  vertical-align: baseline;
+}
 .fl-kcal-bar {
   height: 14px;
   margin-top: 14px;
@@ -361,11 +371,78 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
 }
 .fl-kcal-bar span.fl-over { background: linear-gradient(90deg, var(--fl-coral), #f59e0b); }
 .fl-macro-line {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 0;
   color: #c7c0b3;
   font-size: 11px;
-  line-height: 1.35;
-  letter-spacing: 0.02em;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+.fl-macro-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  min-height: 18px;
+  padding: 0 14px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  white-space: nowrap;
+}
+.fl-macro-chip:not(:last-child)::after {
+  content: ".";
+  position: absolute;
+  right: 5px;
+  bottom: 0;
+  color: var(--fl-muted);
+  font-size: 11px;
+  line-height: 1;
+}
+.fl-macro-icon {
+  display: inline-block;
+  margin-right: 1px;
+  font-size: 11px;
+  line-height: 1;
+  transform: translateY(1px);
+}
+.fl-gym-macro-label {
+  display: inline;
+  color: var(--fl-ink-soft);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+.fl-gym-dashboard .fl-kcal-remain {
+  margin-top: 3px;
+  display: block;
+}
+.fl-gym-dashboard .fl-macro-line {
+  margin-top: 18px;
+}
+.fl-gym-macro-dumbbell {
+  width: 13px;
+  height: 13px;
+  margin-right: 1px;
+}
+.fl-macro-chip strong {
+  display: inline;
+  margin: 0;
+  color: var(--fl-ink-soft);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.fl-macro-goal {
+  color: var(--fl-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(2px);
 }
 
 .fl-ai-card {
@@ -451,21 +528,26 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
 }
 .fl-ai-card textarea {
   width: 100%;
-  min-height: 64px;
+  height: 42px;
+  min-height: 42px;
   resize: vertical;
   border: 1px solid var(--fl-border);
-  border-radius: 10px;
-  padding: 11px 48px 11px 12px;
+  border-radius: 999px;
+  padding: 11px 48px 9px 14px;
   font: inherit;
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 18px;
   color: var(--fl-fg);
   background: rgba(17, 20, 24, 0.9);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 .fl-ai-card textarea::placeholder {
-  color: #6f756f;
-  font-style: italic;
+  color: var(--fl-fg);
+  font: inherit;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+  opacity: 1;
 }
 .fl-image-drop {
   position: relative;
@@ -567,11 +649,15 @@ body[data-theme="light"] .fl-food-controls select,
 body[data-theme="light"] .fl-koala-mode,
 body[data-theme="light"] .fl-ai-card textarea,
 body[data-theme="light"] .fl-image-drop,
+body[data-theme="light"] .fl-gym-add-exercise-btn,
 body[data-theme="light"] .fl-log-title .fl-daily-date,
 body[data-theme="light"] .fl-edit-day-row .fl-daily-date,
 body[data-theme="light"] .fl-kcal-target-picker {
   background: var(--fl-panel);
   color: var(--fl-fg);
+}
+body[data-theme="light"] .fl-gym-add-exercise-btn {
+  border-color: #d4c9ba;
 }
 body[data-theme="light"] select,
 body[data-theme="light"] input,
@@ -626,7 +712,12 @@ body[data-theme="light"] .fl-gym-save-box .fl-log-day-btn {
   background: #f0e6d8;
 }
 body[data-theme="light"] .fl-gym-row-activity,
-body[data-theme="light"] .fl-gym-metric-cell input {
+body[data-theme="light"] .fl-gym-metric-cell input,
+body[data-theme="light"] .fl-gym-variant-cell select,
+body[data-theme="light"] .fl-gym-picker-sheet,
+body[data-theme="light"] .fl-gym-picker-option,
+body[data-theme="light"] .fl-gym-picker-back,
+body[data-theme="light"] .fl-gym-picker-close {
   background: #fffdf8;
   color: #171717;
   border-color: #d4c9ba;
@@ -658,6 +749,13 @@ body[data-theme="light"] .fl-kcal-eyebrow,
 body[data-theme="light"] .fl-kcal-remain,
 body[data-theme="light"] .fl-macro-line {
   color: #4b463f;
+}
+body[data-theme="light"] .fl-macro-chip strong,
+body[data-theme="light"] .fl-gym-macro-label {
+  color: #17120d;
+}
+body[data-theme="light"] .fl-macro-goal {
+  color: #786f65;
 }
 body[data-theme="light"] .fl-theme-mini-btn.fl-next-dark {
   background: #25282d;
@@ -1505,6 +1603,48 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   gap: 8px;
   margin-top: 10px;
 }
+.fl-gym-add-exercise-btn {
+  position: relative;
+  width: auto;
+  min-width: 154px;
+  height: 42px;
+  min-height: 42px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid #475565;
+  border-radius: 999px;
+  background: rgba(17, 29, 43, 0.72);
+  color: var(--fl-fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 7px 14px 7px 9px;
+}
+.fl-gym-add-exercise-btn:hover {
+  border-color: var(--fl-accent);
+  color: var(--fl-fg);
+}
+.fl-gym-add-plus {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #f4b84e;
+  color: #12100c;
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.fl-gym-add-exercise-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
 .fl-gym-quick-actions-row {
   display: grid;
   grid-template-columns: minmax(132px, 180px) auto;
@@ -1565,7 +1705,8 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   font-size: 12px;
 }
 .fl-gym-activity-col { width: auto; }
-.fl-gym-metric-col { width: 8.2ch; }
+.fl-gym-type-col { width: 16.5ch; }
+.fl-gym-metric-col { width: 7.4ch; }
 .fl-gym-actions-width-col { width: 44px; }
 .fl-gym-koala-table th {
   color: var(--fl-muted);
@@ -1639,6 +1780,17 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   gap: 6px;
   align-items: center;
 }
+.fl-gym-activity-name-label {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  min-width: 0;
+  color: var(--fl-fg);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
 .fl-gym-activity-action-spacer {
   width: 20px;
   height: 24px;
@@ -1656,6 +1808,23 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   min-height: 28px;
   padding: 4px 4px;
   text-align: center;
+}
+.fl-gym-variant-cell select {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--fl-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--fl-fg);
+  font: inherit;
+  font-size: 11px;
+  min-height: 28px;
+  padding: 4px 3px;
+  text-align: center;
+}
+.fl-gym-variant-empty {
+  display: block;
+  min-height: 28px;
 }
 .fl-gym-metric-cell {
   text-align: center;
@@ -1701,6 +1870,107 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
 }
 .fl-gym-draft-row td {
   opacity: 0.76;
+}
+.fl-gym-picker[hidden] {
+  display: none;
+}
+.fl-gym-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.fl-gym-picker-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.56);
+}
+.fl-gym-picker-sheet {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(76vh, 680px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--fl-border);
+  border-radius: 8px 8px 0 0;
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+  box-shadow: 0 -18px 54px rgba(0, 0, 0, 0.44);
+  overflow: hidden;
+}
+.fl-gym-picker-head {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--fl-border);
+}
+.fl-gym-picker-head h3 {
+  margin: 0;
+  font-size: 16px;
+  text-align: center;
+}
+.fl-gym-picker-back,
+.fl-gym-picker-close {
+  min-height: 32px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: var(--fl-panel);
+  color: var(--fl-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.fl-gym-picker-back[hidden] {
+  visibility: hidden;
+  display: block;
+}
+.fl-gym-picker-close {
+  width: 32px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+.fl-gym-picker-body {
+  overflow: auto;
+  padding: 10px 12px 18px;
+}
+.fl-gym-picker-group {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.fl-gym-picker-group h4 {
+  margin: 8px 2px 2px;
+  color: var(--fl-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.fl-gym-picker-option {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--fl-border);
+  border-radius: 8px;
+  background: var(--fl-panel);
+  color: var(--fl-fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  padding: 9px 11px;
+  cursor: pointer;
+}
+.fl-gym-picker-option:hover,
+.fl-gym-picker-option:focus {
+  border-color: var(--fl-accent);
+  outline: none;
+}
+.fl-gym-variant-group .fl-gym-picker-option {
+  text-align: center;
 }
 .fl-gym-form {
   display: grid;
@@ -2231,7 +2501,10 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
     min-width: 0;
   }
   .fl-gym-metric-col {
-    width: 7.2ch;
+    width: 6.2ch;
+  }
+  .fl-gym-type-col {
+    width: 14.5ch;
   }
   .fl-gym-actions-width-col {
     width: 40px;

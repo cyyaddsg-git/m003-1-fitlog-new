@@ -73,7 +73,7 @@
         <span class="fl-image-hint">Photo</span>
       </label>
       <div class="fl-composer-input">
-        <textarea id="fl-input" rows="2" placeholder="Add meal..."></textarea>
+        <textarea id="fl-input" rows="2" placeholder="Add Meal"></textarea>
         <button type="button" class="fl-send-btn" id="fl-send-btn" aria-label="Estimate meal">🔎</button>
       </div>
     </div>
@@ -153,10 +153,11 @@
       </div>
       <div class="fl-gym-save-box">
         <small id="fl-gym-saved-time">Not saved yet</small>
-        <button type="button" class="fl-log-day-btn" id="fl-gym-lock-btn">🔒 Lock</button>
+        <button type="button" class="fl-log-day-btn" id="fl-gym-lock-btn">Save</button>
       </div>
     </header>
     <div class="fl-gym-section" id="fl-gym-table"></div>
+    <button type="button" class="fl-gym-add-exercise-btn" id="fl-gym-add-exercise"><span class="fl-gym-add-plus" aria-hidden="true">+</span><span>Add Exercise</span></button>
     <div class="fl-gym-actions-block">
       <div class="fl-gym-quick-actions-row">
         <select class="fl-daily-date" id="fl-gym-preset" aria-label="Gym preset">
@@ -166,7 +167,7 @@
       </div>
       <div class="fl-gym-preset-save-row">
         <div class="fl-gym-save-preset-field">
-          <input type="text" class="fl-gym-fav-input" id="fl-gym-fav-name" maxlength="15" placeholder="Save as preset..." list="fl-gym-fav-options" />
+          <input type="text" class="fl-gym-fav-input" id="fl-gym-fav-name" name="gym-preset-name" maxlength="15" placeholder="Save as preset..." list="fl-gym-fav-options" autocomplete="off" autocapitalize="words" />
           <button type="button" class="fl-export-btn" id="fl-gym-save-fav">Save</button>
         </div>
         <small class="fl-gym-fav-note">Max 5 presets.</small>
@@ -179,6 +180,18 @@
   <div class="fl-page-bottom-controls">
     <label class="fl-edit-day-row">Edit previous day: <select class="fl-daily-date" id="fl-gym-date" aria-label="Daily gym log date"></select></label>
     <a href="#userlibrary" class="fl-library-text-link" data-open-library>Manage UserLibrary</a>
+  </div>
+
+  <div class="fl-gym-picker" id="fl-gym-picker" hidden>
+    <div class="fl-gym-picker-backdrop" data-gym-picker-close></div>
+    <section class="fl-gym-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="fl-gym-picker-title">
+      <header class="fl-gym-picker-head">
+        <button type="button" class="fl-gym-picker-back" id="fl-gym-picker-back" hidden>Back</button>
+        <h3 id="fl-gym-picker-title">Add Exercise</h3>
+        <button type="button" class="fl-gym-picker-close" id="fl-gym-picker-close" aria-label="Close">×</button>
+      </header>
+      <div class="fl-gym-picker-body" id="fl-gym-picker-body"></div>
+    </section>
   </div>
 </section>
 
@@ -320,9 +333,10 @@
 <footer class="fl-app-footer">
   <span>Powered by</span>
   <span>Koala</span>
-  <span>v2.2.7</span>
+  <span>v2.2.8</span>
 </footer>
 
+<script src="./lib/generated_libraries.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

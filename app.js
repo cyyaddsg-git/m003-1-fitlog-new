@@ -92,74 +92,153 @@ const CUSTOM_CARDIO_LABEL = 'Custom cardio';
 const MAX_LIBRARY_ITEMS = 30;
 const MAX_GYM_CUSTOMS = 10;
 const GYM_ACTIVITY_DATALIST_ID = 'fl-gym-activity-options';
-const GYM_ACTIVITIES = [
-  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - barbell/dumbbell (decline)' },
-  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - barbell/dumbbell (flat)' },
-  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - barbell/dumbbell (incline)' },
-  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - machine' },
-  { group: 'Push Upper', kind: 'weight', name: 'Bench Press - Smith machine' },
-  { group: 'Push Upper', kind: 'weight', name: 'Chest Fly - barbell/dumbbell' },
-  { group: 'Push Upper', kind: 'weight', name: 'Chest Fly - cable' },
-  { group: 'Push Upper', kind: 'weight', name: 'Chest Fly - machine (pec deck)' },
-  { group: 'Push Upper', kind: 'weight', name: 'Dip - bodyweight' },
-  { group: 'Push Upper', kind: 'weight', name: 'Dip - machine (assisted)' },
-  { group: 'Push Upper', kind: 'weight', name: 'Front Raise - barbell/dumbbell' },
-  { group: 'Push Upper', kind: 'weight', name: 'Front Raise - cable' },
-  { group: 'Push Upper', kind: 'weight', name: 'Lateral Raise - barbell/dumbbell' },
-  { group: 'Push Upper', kind: 'weight', name: 'Lateral Raise - cable' },
-  { group: 'Push Upper', kind: 'weight', name: 'Lateral Raise - machine' },
-  { group: 'Push Upper', kind: 'weight', name: 'Push-Up - bodyweight' },
-  { group: 'Push Upper', kind: 'weight', name: 'Shoulder Press - barbell/dumbbell' },
-  { group: 'Push Upper', kind: 'weight', name: 'Shoulder Press - machine' },
-  { group: 'Push Upper', kind: 'weight', name: 'Shoulder Press - Smith machine' },
-  { group: 'Push Upper', kind: 'weight', name: 'Skull Crusher - barbell/dumbbell' },
-  { group: 'Push Upper', kind: 'weight', name: 'Tricep Extension - barbell/dumbbell (overhead)' },
-  { group: 'Push Upper', kind: 'weight', name: 'Tricep Extension - cable (overhead)' },
-  { group: 'Push Upper', kind: 'weight', name: 'Tricep Extension - machine' },
-  { group: 'Push Upper', kind: 'weight', name: 'Tricep Pushdown - cable' },
-  { group: 'Push Lower', kind: 'weight', name: 'Calf Raise - barbell/dumbbell' },
-  { group: 'Push Lower', kind: 'weight', name: 'Calf Raise - machine (seated)' },
-  { group: 'Push Lower', kind: 'weight', name: 'Calf Raise - machine (standing)' },
-  { group: 'Push Lower', kind: 'weight', name: 'Hip Thrust - barbell/dumbbell' },
-  { group: 'Push Lower', kind: 'weight', name: 'Hip Thrust - machine' },
-  { group: 'Push Lower', kind: 'weight', name: 'Leg Extension - machine' },
-  { group: 'Push Lower', kind: 'weight', name: 'Leg Press - machine' },
-  { group: 'Push Lower', kind: 'weight', name: 'Lunge - barbell/dumbbell' },
-  { group: 'Push Lower', kind: 'weight', name: 'Squat - barbell/dumbbell (back)' },
-  { group: 'Push Lower', kind: 'weight', name: 'Squat - barbell/dumbbell (front)' },
-  { group: 'Push Lower', kind: 'weight', name: 'Squat - barbell/dumbbell (goblet)' },
-  { group: 'Push Lower', kind: 'weight', name: 'Squat - machine (hack)' },
-  { group: 'Push Lower', kind: 'weight', name: 'Squat - Smith machine' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Bicep Curl - barbell/dumbbell' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Bicep Curl - cable' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Bicep Curl - machine' },
+const FALLBACK_GYM_ACTIVITIES = [
+  { group: 'Push Upper', kind: 'weight', name: 'Bench Press' },
+  { group: 'Push Upper', kind: 'weight', name: 'Chest Fly' },
+  { group: 'Push Upper', kind: 'weight', name: 'Dip' },
+  { group: 'Push Upper', kind: 'weight', name: 'Front Raise' },
+  { group: 'Push Upper', kind: 'weight', name: 'Lateral Raise' },
+  { group: 'Push Upper', kind: 'weight', name: 'Push-Up' },
+  { group: 'Push Upper', kind: 'weight', name: 'Shoulder Press' },
+  { group: 'Push Upper', kind: 'weight', name: 'Skull Crusher' },
+  { group: 'Push Upper', kind: 'weight', name: 'Tricep Extension' },
+  { group: 'Push Upper', kind: 'weight', name: 'Tricep Pushdown' },
+  { group: 'Push Lower', kind: 'weight', name: 'Calf Raise' },
+  { group: 'Push Lower', kind: 'weight', name: 'Hip Thrust' },
+  { group: 'Push Lower', kind: 'weight', name: 'Leg Extension' },
+  { group: 'Push Lower', kind: 'weight', name: 'Leg Press' },
+  { group: 'Push Lower', kind: 'weight', name: 'Lunge' },
+  { group: 'Push Lower', kind: 'weight', name: 'Squat' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Bicep Curl' },
   { group: 'Pull Upper', kind: 'weight', name: 'Face Pull - cable' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Lat Pulldown - cable' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Lat Pulldown - machine' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Pull-Up - bodyweight' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Pull-Up - machine (assisted)' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Pullover - barbell/dumbbell' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Pullover - cable' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Reverse Fly - barbell/dumbbell' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Reverse Fly - cable' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Reverse Fly - machine (rear delt)' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Row - barbell/dumbbell' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Row - cable (seated)' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Row - machine' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Row - T-bar' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Shrug - barbell/dumbbell' },
-  { group: 'Pull Lower', kind: 'weight', name: 'Deadlift - barbell/dumbbell (conventional)' },
-  { group: 'Pull Lower', kind: 'weight', name: 'Deadlift - barbell/dumbbell (Romanian)' },
-  { group: 'Pull Lower', kind: 'weight', name: 'Deadlift - Smith machine' },
-  { group: 'Pull Lower', kind: 'weight', name: 'Deadlift - trap bar' },
-  { group: 'Pull Lower', kind: 'weight', name: 'Good Morning - barbell/dumbbell' },
-  { group: 'Pull Lower', kind: 'weight', name: 'Leg Curl - machine (lying)' },
-  { group: 'Pull Lower', kind: 'weight', name: 'Leg Curl - machine (seated)' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Lat Pulldown' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Pull-Up' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Pullover' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Reverse Fly' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Row' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Shrug' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Deadlift' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Romanian Deadlift' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Good Morning' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Leg Curl' },
   { group: 'Cardio', kind: 'cardio', name: 'Treadmill' },
   { group: 'Cardio', kind: 'cardio', name: 'Cycling' },
   { group: 'Cardio', kind: 'cardio', name: 'Rowing Machine' },
   { group: 'Cardio', kind: 'cardio', name: 'Elliptical' },
 ];
+const GYM_ACTIVITIES = (typeof window !== 'undefined'
+  && Array.isArray(window.FITLOG_HOST_GYM_ACTIVITIES)
+  && window.FITLOG_HOST_GYM_ACTIVITIES.length)
+  ? window.FITLOG_HOST_GYM_ACTIVITIES
+  : FALLBACK_GYM_ACTIVITIES;
+
+const GYM_ACTIVITY_ALIASES = {
+  'Bench Press - barbell/dumbbell': { name: 'Bench Press', variant: 'barbell/dumbbell' },
+  'Bench Press - barbell/dumbbell (decline)': { name: 'Bench Press', variant: 'barbell/dumbbell' },
+  'Bench Press - barbell/dumbbell (flat)': { name: 'Bench Press', variant: 'barbell/dumbbell' },
+  'Bench Press - barbell/dumbbell (incline)': { name: 'Bench Press', variant: 'barbell/dumbbell' },
+  'Bench Press - machine': { name: 'Bench Press', variant: 'machine' },
+  'Bench Press - Smith machine': { name: 'Bench Press', variant: 'Smith machine' },
+  'Bicep Curl - barbell/dumbbell': { name: 'Bicep Curl', variant: 'barbell/dumbbell' },
+  'Bicep Curl - cable': { name: 'Bicep Curl', variant: 'cable' },
+  'Bicep Curl - machine': { name: 'Bicep Curl', variant: 'machine' },
+  'Calf Raise - barbell/dumbbell': { name: 'Calf Raise', variant: 'barbell/dumbbell' },
+  'Calf Raise - machine': { name: 'Calf Raise', variant: 'machine' },
+  'Calf Raise - machine (seated)': { name: 'Calf Raise', variant: 'machine' },
+  'Calf Raise - machine (standing)': { name: 'Calf Raise', variant: 'machine' },
+  'Chest Fly - barbell/dumbbell': { name: 'Chest Fly', variant: 'barbell/dumbbell' },
+  'Chest Fly - cable': { name: 'Chest Fly', variant: 'cable' },
+  'Chest Fly - machine (pec deck)': { name: 'Chest Fly', variant: 'machine (pec deck)' },
+  'Deadlift - barbell/dumbbell': { name: 'Deadlift', variant: 'barbell/dumbbell' },
+  'Deadlift - barbell/dumbbell (conventional)': { name: 'Deadlift', variant: 'barbell/dumbbell' },
+  'Deadlift - barbell/dumbbell (Romanian)': { name: 'Romanian Deadlift', variant: 'barbell/dumbbell' },
+  'Deadlift - Smith machine': { name: 'Deadlift', variant: 'Smith machine' },
+  'Deadlift - trap bar': { name: 'Deadlift', variant: 'trap bar' },
+  'Dip - bodyweight': { name: 'Dip', variant: 'bodyweight' },
+  'Dip - machine (assisted)': { name: 'Dip', variant: 'assisted machine' },
+  'Front Raise - barbell/dumbbell': { name: 'Front Raise', variant: 'barbell/dumbbell' },
+  'Front Raise - cable': { name: 'Front Raise', variant: 'cable' },
+  'Good Morning - barbell/dumbbell': { name: 'Good Morning', variant: 'barbell/dumbbell' },
+  'Hip Thrust - barbell/dumbbell': { name: 'Hip Thrust', variant: 'barbell/dumbbell' },
+  'Hip Thrust - machine': { name: 'Hip Thrust', variant: 'machine' },
+  'Lat Pulldown - cable': { name: 'Lat Pulldown', variant: 'cable' },
+  'Lat Pulldown - machine': { name: 'Lat Pulldown', variant: 'machine' },
+  'Lateral Raise - barbell/dumbbell': { name: 'Lateral Raise', variant: 'barbell/dumbbell' },
+  'Lateral Raise - cable': { name: 'Lateral Raise', variant: 'cable' },
+  'Lateral Raise - machine': { name: 'Lateral Raise', variant: 'machine' },
+  'Leg Curl - machine': { name: 'Leg Curl', variant: 'machine' },
+  'Leg Curl - machine (lying)': { name: 'Leg Curl', variant: 'machine' },
+  'Leg Curl - machine (seated)': { name: 'Leg Curl', variant: 'machine' },
+  'Leg Extension - machine': { name: 'Leg Extension', variant: 'machine' },
+  'Leg Press - machine': { name: 'Leg Press', variant: 'machine' },
+  'Lunge - barbell/dumbbell': { name: 'Lunge', variant: 'barbell/dumbbell' },
+  'Pull-Up - bodyweight': { name: 'Pull-Up', variant: 'bodyweight' },
+  'Pull-Up - machine (assisted)': { name: 'Pull-Up', variant: 'assisted machine' },
+  'Pullover - barbell/dumbbell': { name: 'Pullover', variant: 'barbell/dumbbell' },
+  'Pullover - cable': { name: 'Pullover', variant: 'cable' },
+  'Push-Up - bodyweight': { name: 'Push-Up', variant: 'bodyweight' },
+  'Reverse Fly - barbell/dumbbell': { name: 'Reverse Fly', variant: 'barbell/dumbbell' },
+  'Reverse Fly - cable': { name: 'Reverse Fly', variant: 'cable' },
+  'Reverse Fly - machine (rear delt)': { name: 'Reverse Fly', variant: 'machine (rear delt)' },
+  'Romanian Deadlift - barbell/dumbbell': { name: 'Romanian Deadlift', variant: 'barbell/dumbbell' },
+  'Row - barbell/dumbbell': { name: 'Row', variant: 'barbell/dumbbell' },
+  'Row - cable (seated)': { name: 'Row', variant: 'cable (seated)' },
+  'Row - machine': { name: 'Row', variant: 'machine' },
+  'Row - T-bar': { name: 'Row', variant: 'T-bar' },
+  'Shoulder Press - barbell/dumbbell': { name: 'Shoulder Press', variant: 'barbell/dumbbell' },
+  'Shoulder Press - machine': { name: 'Shoulder Press', variant: 'machine' },
+  'Shoulder Press - Smith machine': { name: 'Shoulder Press', variant: 'Smith machine' },
+  'Shrug - barbell/dumbbell': { name: 'Shrug', variant: 'barbell/dumbbell' },
+  'Skull Crusher - barbell/dumbbell': { name: 'Skull Crusher', variant: 'barbell/dumbbell' },
+  'Squat - barbell/dumbbell': { name: 'Squat', variant: 'barbell/dumbbell' },
+  'Squat - barbell/dumbbell (back)': { name: 'Squat', variant: 'barbell/dumbbell' },
+  'Squat - barbell/dumbbell (front)': { name: 'Squat', variant: 'barbell/dumbbell' },
+  'Squat - barbell/dumbbell (goblet)': { name: 'Squat', variant: 'barbell/dumbbell' },
+  'Squat - machine (hack)': { name: 'Squat', variant: 'machine (hack)' },
+  'Squat - Smith machine': { name: 'Squat', variant: 'Smith machine' },
+  'Tricep Extension - barbell/dumbbell': { name: 'Tricep Extension', variant: 'barbell/dumbbell' },
+  'Tricep Extension - barbell/dumbbell (overhead)': { name: 'Tricep Extension', variant: 'barbell/dumbbell' },
+  'Tricep Extension - cable': { name: 'Tricep Extension', variant: 'cable' },
+  'Tricep Extension - cable (overhead)': { name: 'Tricep Extension', variant: 'cable' },
+  'Tricep Extension - machine': { name: 'Tricep Extension', variant: 'machine' },
+  'Tricep Pushdown - cable': { name: 'Tricep Pushdown', variant: 'cable' },
+};
+
+const FALLBACK_GYM_VARIANTS = {
+  'Bench Press': ['barbell/dumbbell', 'machine', 'Smith machine'],
+  'Bicep Curl': ['barbell/dumbbell', 'cable', 'machine'],
+  'Calf Raise': ['barbell/dumbbell', 'machine'],
+  'Chest Fly': ['barbell/dumbbell', 'cable', 'machine (pec deck)'],
+  'Deadlift': ['barbell/dumbbell', 'Smith machine', 'trap bar'],
+  'Dip': ['bodyweight', 'assisted machine'],
+  'Front Raise': ['barbell/dumbbell', 'cable'],
+  'Hip Thrust': ['barbell/dumbbell', 'machine'],
+  'Lat Pulldown': ['cable', 'machine'],
+  'Lateral Raise': ['barbell/dumbbell', 'cable', 'machine'],
+  'Face Pull - cable': ['cable'],
+  'Good Morning': ['barbell/dumbbell'],
+  'Leg Curl': ['machine'],
+  'Leg Extension': ['machine'],
+  'Leg Press': ['machine'],
+  'Lunge': ['barbell/dumbbell'],
+  'Pull-Up': ['bodyweight', 'assisted machine'],
+  'Pullover': ['barbell/dumbbell', 'cable'],
+  'Push-Up': ['bodyweight'],
+  'Reverse Fly': ['barbell/dumbbell', 'cable', 'machine (rear delt)'],
+  'Romanian Deadlift': ['barbell/dumbbell'],
+  'Row': ['barbell/dumbbell', 'cable (seated)', 'machine', 'T-bar'],
+  'Shoulder Press': ['barbell/dumbbell', 'machine', 'Smith machine'],
+  'Shrug': ['barbell/dumbbell'],
+  'Skull Crusher': ['barbell/dumbbell'],
+  'Squat': ['barbell/dumbbell', 'machine (hack)', 'Smith machine'],
+  'Tricep Extension': ['barbell/dumbbell', 'cable', 'machine'],
+  'Tricep Pushdown': ['cable'],
+};
+const GYM_VARIANTS = (typeof window !== 'undefined'
+  && window.FITLOG_HOST_GYM_VARIANTS
+  && typeof window.FITLOG_HOST_GYM_VARIANTS === 'object')
+  ? window.FITLOG_HOST_GYM_VARIANTS
+  : FALLBACK_GYM_VARIANTS;
 
 const DEFAULT_SYSTEM_PROMPT = `You are a nutrition estimator. The user describes a meal in any language with portions and skip-eat notes. Output JSON ONLY in this exact shape:
 
@@ -191,71 +270,16 @@ Library priority:
 - Otherwise estimate from your knowledge using brand information the user provided. If brand is ambiguous, portion is unspecified, or the item is unrecognizable, add a "notes" line asking the user to clarify. Output ONLY the items described by the user.`;
 
 const SYSTEM_PROMPT_VERSION = '2026-05-11-v3';
-const DEFAULT_LIBRARY_VERSION = '2026-05-07-reference';
+const DEFAULT_LIBRARY_VERSION = '2026-05-16-v2.2.8-reference';
 const DEFAULT_LIBRARY_CSV = `Category,Item,Size,kcal,Protein (g),Fat (g),Carb (g),Sugar (g),Fiber (g)
-Beverage,GutC Better Soda (Mixed Berries),1 can (250ml),15,0,0,3.8,1.3,6
 Beverage,Heineken,1 can (320ml),134,4.2,0,32.6,0,0
-Dairy/Plant,Oatside Oat Milk,100ml,65,0.6,3.2,8.1,2.8,0
-Dairy/Plant,Oatside Protein Chocolate,100ml,66,8,1.4,4.8,1.6,1.2
-Dairy/Plant,So Good Almond Milk,100ml,39,0.8,2.6,2.8,1.6,0.5
-Dairy/Plant,Homesoy (No Sugar),100ml,30,2.5,1.6,1.2,0.5,0.5
-Dairy/Plant,Chobani Greek Yogurt (Light),100g,56,9.3,0.2,4,3.3,0
-Dairy/Plant,Chobani No Sugar Strawberry,100g,66,8.1,1.7,4.2,2.9,0.2
-Dairy/Plant,Farmers Union Protein Greek Yogurt,100g,55,8.3,0.2,4.9,4.9,0
-Dairy/Plant,Arla Lactofree Fresh Cheese,100g,190,7.8,16,3.3,3.3,0
-Dairy/Plant,Family Brand Low Fat Mozzarella,100g,260,27,16,2.6,0.5,0
-High-Fiber,Chia Seeds,10g,51.6,2,3.3,3,0,3
-High-Fiber,Biogrow Oat Bran,1 scoop,26,1.9,0.5,2.7,0.1,3.1
-High-Fiber,Avocado (Raw),100g,160,2,14.7,8.5,0.7,6.7
-High-Fiber,Spinach (Raw),100g,23,2.9,0.4,3.6,0.4,2.2
-High-Fiber,Broccoli (Raw),100g,34,2.8,0.4,6.6,1.7,2.6
-High-Fiber,Raspberries (Raw),100g,52,1.2,0.7,11.9,4.4,6.5
-High-Fiber,Lentils (Cooked),100g,116,9,0.4,20.1,1.8,7.9
-High-Fiber,Black Beans (Cooked),100g,132,8.9,0.5,23.7,0.3,8.7
-High-Fiber,Australian Celery (Raw),100g,14,0.7,0.2,3,1.3,1.6
-Homemake,Chobani Yogurt Basque Cake (0415),1 cake (220g raw),279,18.9,4,40.8,33.5,0.2
-Meat,Chicken Breast (Raw),100g,120,22,3,0,0,0
-Meat,Sea Prawn (Raw),100g,106,20.3,1.7,1,0,0
-Meat,"Salmon (Atlantic, Raw)",100g,208,20,13,0,0,0
-Meat,Ayamas Black Pepper Sausage,1 pc,59,7.1,1.6,3.5,0,0
-Pantry,Symphony Dark Choc Spread,100g,502,5.6,39.1,51,0,7.5
-Pantry,Sunshine Bread (Malaysia),100g,269,10.7,3.2,47.2,12.7,4.3
-Pantry,Jobbie Pure Peanut Butter (Creamy),100g,618,33.6,46.3,5.4,5.1,11.2
-Pantry,Steamed White Rice,150g,195,4,0.4,42,0.1,1
 Pantry,Cooked White Rice,100g,130,2.7,0.3,28,0.1,0.4
-Pantry,Cooked Brown Rice,100g,123,2.7,1,25.6,0.2,1.6
-Pantry,Weetbix,30g,106,3.6,0.4,20.1,0.8,3
-Pantry,Weet-Bix Bites (Honey Crunch),100g,369,11.4,1.4,72.6,18.8,8
-Pantry,Ceres Organic Rice Cake,3 pcs,69,1.5,0.5,14.7,0.4,0.6
-Pantry,Woolworths Baked Pretzels,25g,98,2.5,1,19,0.9,0.9
-Pantry,Mama Noodle (Pork),1 pack (60g),290,6,13,36,3,0
-Pantry,Mama Noodle (Tomyum),1 pack (55g),250,6,11,32,3,0
-Pantry,Realfoods Cornthins (Sesame),3 pcs,69,1.9,0.6,12.6,0.1,1.5
-Pantry,Rolled Oats,100g,358,15,7,55,0,0
-Pantry,Mimo Shirataki Noodle,100g,5,0,0,1,0,3
-Pantry,Sunshine Shokupan Purple Sweet Potato,1 pc (30g),80.5,3.2,1,14.2,3.8,1.3
-Pantry,Meizhoushike Sea Salt Choc Oatmeal,100g,418,9.2,7.9,76.5,0,0
-Pantry,Radiant Organic Muesli,100g,414,10,10.7,69.4,8.1,13.5
-Ready-to-Eat,Betagro Tender Chicken (Garlic Butter),1 pack,100,19.1,1,3.8,1.4,0
-Ready-to-Eat,Betagro Tender Chicken (Hot & Spicy),1 pack,97,18.6,1.3,2.7,1.2,1.2
-Ready-to-Eat,Betagro Tender Chicken (Herb),1 pack,96,20.8,1.3,0.4,0,0.6
-Seasoning,Blue Elephant Tom Yum,15g,40,0,2.5,5,3,0
-Seasoning,Blue Elephant Krapow Paste,15g,30,3.1,2.5,3,1,0
-Snack,Gullon Sugar Free Maria,1 pc,25,0.4,0.7,4.5,0.5,0.3
-Snack,Gullon No Sugar Twins,1 pc,43,0.5,1.8,6.8,0.3,0.9
-Snack,Gullon Sugar Free Fibre,1 pc,37,0.5,1.4,5.5,0.4,0.8
-Snack,Ovaltine Choc Malt Cookies,3 pcs,150,2,8,19,7,1
-Snack,Lexus Sandwich Biscuit,1 sachet (2 pcs),92,1.7,4.2,11.6,4.7,0.8
-Snack,鳕鱼香丝 (Fish Strips),100g,324,24,0.3,52.4,0,0
-Snack,Tong Garden Noi Cassava Chips,30g,150,0,6,22,1,0
-Snack,Benns 99.9% Dark Chocolate,1 pc (4g),23,0.6,1.7,1.3,0,0.9
-Snack,Tiger Chocolate Mini Biscuit,1 pc,15.7,0.3,0.7,2.5,0.9,0
-Snack,Carada Nori Seaweed Snack,1 bag (64g),280,2,8,50,18,0
-Snack,Lay's Baked Chips,1 serv (28g),130,2,5,20,2,1
-Snack,Oreo Sandwich Biscuit,1 pc,42,0.4,1.8,5.9,3.2,0.3
-Supplements,Performa Whey (Milk Tea),1 serv,140,25.2,0.9,8.1,3.2,2
-Supplements,MyProtein Whey (Choc),1 serv,113,22,1.9,2,1.5,0
-Tofu,Lousam Soft Tofu,100g,53,5.9,2.5,1.8,0,0`;
+Supplements,MyProtein Whey (Choc),1 serv,113,22,1.9,2,1.5,0`;
+const HOST_LIBRARY_CSV = (typeof window !== 'undefined'
+  && typeof window.FITLOG_HOST_FOOD_LIBRARY_CSV === 'string'
+  && window.FITLOG_HOST_FOOD_LIBRARY_CSV.trim())
+  ? window.FITLOG_HOST_FOOD_LIBRARY_CSV
+  : DEFAULT_LIBRARY_CSV;
 
 // ============ Firebase Configuration ============
 
@@ -365,7 +389,7 @@ function slug(s) {
 }
 
 function defaultLibraryEntries() {
-  const lines = DEFAULT_LIBRARY_CSV.trim().split(/\r?\n/);
+  const lines = HOST_LIBRARY_CSV.trim().split(/\r?\n/);
   return lines.slice(1).map((line) => {
     const [, item, size, kcal, p, f, c, su, fb] = parseCSVLine(line);
     const serving = parseServingSize(size);
@@ -893,6 +917,12 @@ const els = {
   gymDate: $('#fl-gym-date'),
   gymSummary: $('#fl-gym-summary'),
   gymTable: $('#fl-gym-table'),
+  gymAddExercise: $('#fl-gym-add-exercise'),
+  gymPicker: $('#fl-gym-picker'),
+  gymPickerTitle: $('#fl-gym-picker-title'),
+  gymPickerBody: $('#fl-gym-picker-body'),
+  gymPickerBack: $('#fl-gym-picker-back'),
+  gymPickerClose: $('#fl-gym-picker-close'),
   gymSavedTime: $('#fl-gym-saved-time'),
   gymNoteShell: $('#fl-gym-note-shell'),
   gymClearDay: $('#fl-gym-clear-day'),
@@ -1170,8 +1200,10 @@ els.tabs.forEach((t) => t.addEventListener('click', () => {
   const target = t.dataset.tab;
   if (target === 'logging') {
     selectedDailyDate = todayISO();
-  } else if (target === 'gym') {
+  } else if (target === 'gym' && visiblePanelName() !== 'gym') {
     selectedGymDate = todayISO();
+    resetGymDraft();
+    gymLocked = false;
   }
   showTab(target);
 }));
@@ -1798,14 +1830,33 @@ function dailyDateOptions() {
   return dates;
 }
 
+function dayName3(date) {
+  const d = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return 'Day';
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+}
+
+function dateOptionLabel(date, logged) {
+  return `${date} (${dayName3(date)})${logged ? ' .' : ''}`;
+}
+
+function foodDayHasLog(day) {
+  return dayMeals(day).some((meal) => Array.isArray(meal.items) && meal.items.length);
+}
+
+function gymDayHasLog(day) {
+  return !isGymDayEmpty(day);
+}
+
 function renderDailyDateOptions() {
   const dates = dailyDateOptions();
   if (!dates.includes(selectedDailyDate)) selectedDailyDate = todayISO();
+  const all = loadDaily();
   els.dailyDate.innerHTML = '';
   dates.forEach((date) => {
     const opt = document.createElement('option');
     opt.value = date;
-    opt.textContent = date === todayISO() ? `${date} (today)` : date;
+    opt.textContent = dateOptionLabel(date, foodDayHasLog(all[date]));
     els.dailyDate.appendChild(opt);
   });
   els.dailyDate.value = selectedDailyDate;
@@ -1859,14 +1910,26 @@ function metricValueForTarget(target, key) {
 function renderMetricChip(label, key, total, target) {
   const targetValue = metricValueForTarget(target, key);
   const short = { Protein: 'P', Fat: 'F', Carb: 'C', Sugar: 'Su', Fiber: 'Fb' }[label] || label;
-  if (targetValue == null) {
-    return `${short} ${key === 'kcal' ? fmtNum(total[key], 0) : fmtNum(total[key], 0)}`;
-  } else if (key === 'su') {
-    return `${short} ${fmtNum(total[key], 0)}/<${fmtNum(targetValue, 0)}`;
-  } else if (key === 'fb') {
-    return `${short} ${fmtNum(total[key], 0)}/> ${fmtNum(targetValue, 0)}`.replace('> ', '>');
+  const icon = { p: '🥩', f: '🧈', c: '🍚', su: '🍰', fb: '🥬' }[key] || '';
+  const chip = document.createElement('span');
+  chip.className = 'fl-macro-chip';
+  if (icon) {
+    const iconEl = document.createElement('span');
+    iconEl.className = 'fl-macro-icon';
+    iconEl.textContent = icon;
+    chip.appendChild(iconEl);
   }
-  return `${short} ${fmtNum(total[key], 0)}/${fmtNum(targetValue, 0)}`;
+  const value = document.createElement('strong');
+  value.textContent = `${short} ${fmtNum(total[key], 0)}g`;
+  chip.appendChild(value);
+  if (targetValue != null) {
+    const goal = document.createElement('span');
+    goal.className = 'fl-macro-goal';
+    const prefix = key === 'su' ? '<' : key === 'fb' ? '>' : '/';
+    goal.textContent = `${prefix}${fmtNum(targetValue, 0)}g`;
+    chip.appendChild(goal);
+  }
+  return chip;
 }
 
 function targetModeShort(mode) {
@@ -1891,11 +1954,12 @@ function renderNutritionBoard(total, target) {
     targetPicker.appendChild(display);
     hero.appendChild(targetPicker);
   }
-  const eyebrow = document.createElement('span');
-  eyebrow.className = 'fl-kcal-eyebrow';
-  eyebrow.textContent = 'KCAL GOAL';
   const value = document.createElement('strong');
-  value.textContent = target ? `${fmtNum(total.kcal, 0)} / ${fmtNum(target.kcal, 0)}` : fmtNum(total.kcal, 0);
+  value.appendChild(document.createTextNode(target ? `${fmtNum(total.kcal, 0)} / ${fmtNum(target.kcal, 0)}` : fmtNum(total.kcal, 0)));
+  const unit = document.createElement('span');
+  unit.className = 'fl-kcal-unit';
+  unit.textContent = 'KCAL';
+  value.appendChild(unit);
   const remainEl = document.createElement('span');
   remainEl.className = 'fl-kcal-remain';
   remainEl.textContent = target
@@ -1908,17 +1972,19 @@ function renderNutritionBoard(total, target) {
   fill.className = target && total.kcal > target.kcal ? 'fl-over' : '';
   bar.appendChild(fill);
 
-  const macros = document.createElement('p');
+  const macros = document.createElement('div');
   macros.className = 'fl-macro-line';
-  macros.textContent = [
+  [
     ['Protein', 'p'],
     ['Fat', 'f'],
     ['Carb', 'c'],
     ['Sugar', 'su'],
     ['Fiber', 'fb'],
-  ].map(([label, key]) => renderMetricChip(label, key, total, target)).join(' · ');
+  ].forEach(([label, key]) => {
+    macros.appendChild(renderMetricChip(label, key, total, target));
+  });
 
-  hero.append(eyebrow, value, remainEl, bar, macros);
+  hero.append(value, remainEl, bar, macros);
   els.nutritionBoard.append(hero);
 }
 
@@ -2123,6 +2189,27 @@ function movementInfo(activity) {
   return { ul: ul || '—', pp: pp || '—' };
 }
 
+function gymAliasForName(name) {
+  return GYM_ACTIVITY_ALIASES[String(name || '').trim()] || null;
+}
+
+function canonicalGymName(name) {
+  return gymAliasForName(name)?.name || String(name || '').trim();
+}
+
+function gymVariantsFor(name) {
+  return GYM_VARIANTS[canonicalGymName(name)] || [''];
+}
+
+function defaultGymVariant(name) {
+  const variants = gymVariantsFor(name).filter((variant) => variant);
+  return variants.length === 1 ? variants[0] : '';
+}
+
+function gymHasVariants(name) {
+  return gymVariantsFor(name).filter((variant) => variant).length > 1;
+}
+
 function blankGymRow(kind) {
   return kind === 'cardio'
     ? { speed: '', incline: '', time: '' }
@@ -2149,7 +2236,9 @@ function gymActivityByName(name) {
   const clean = String(name || '').trim();
   const custom = loadGymCustoms().find((a) => a.name === clean);
   if (custom) return { group: 'Custom', kind: custom.kind, name: custom.name, custom: true };
-  return GYM_ACTIVITIES.find((a) => a.name === clean) || null;
+  const alias = gymAliasForName(clean);
+  const canonical = alias ? alias.name : clean;
+  return GYM_ACTIVITIES.find((a) => a.name === canonical) || null;
 }
 
 function gymActivityOptions() {
@@ -2219,9 +2308,28 @@ function normalizeGymRows(rows, kind) {
     : { kg: String(r.kg ?? ''), rep: String(r.rep ?? '') });
 }
 
+function normalizeGymActivityRecord(activity) {
+  const kind = activity?.kind === 'cardio' ? 'cardio' : 'weight';
+  const alias = gymAliasForName(activity?.name);
+  const name = alias?.name || String(activity?.name || '').trim();
+  const rawRows = Array.isArray(activity?.rows) ? activity.rows : [];
+  const rowVariant = rawRows.find((row) => row && row.variant)?.variant || '';
+  const rows = normalizeGymRows(rawRows, kind);
+  return {
+    id: activity?.id || uid(),
+    name,
+    kind,
+    variant: kind === 'cardio' ? '' : String(activity?.variant ?? alias?.variant ?? rowVariant ?? defaultGymVariant(name) ?? ''),
+    rows,
+  };
+}
+
 function gymDay(all, date) {
   const day = all[date];
-  if (day && Array.isArray(day.activities)) return day;
+  if (day && Array.isArray(day.activities)) {
+    day.activities = day.activities.map(normalizeGymActivityRecord);
+    return day;
+  }
   return { activities: [], note: '' };
 }
 
@@ -2358,11 +2466,12 @@ function showGymValidation(msg) {
 function renderGymDateOptions() {
   const dates = dailyDateOptions();
   if (!dates.includes(selectedGymDate)) dates.unshift(selectedGymDate);
+  const all = gymDraftData();
   els.gymDate.innerHTML = '';
   dates.forEach((date) => {
     const opt = document.createElement('option');
     opt.value = date;
-    opt.textContent = date === todayISO() ? `${date} (today)` : date;
+    opt.textContent = dateOptionLabel(date, gymDayHasLog(all[date]));
     els.gymDate.appendChild(opt);
   });
   els.gymDate.value = selectedGymDate;
@@ -2389,6 +2498,103 @@ function renderGymPresetOptions() {
   }
 }
 
+function closeGymPicker() {
+  if (!els.gymPicker) return;
+  els.gymPicker.hidden = true;
+}
+
+function gymPickerButton(label, onClick, extraClass = '') {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = `fl-gym-picker-option ${extraClass}`.trim();
+  btn.textContent = label;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function appendGymPickerGroup(label, activities) {
+  if (!activities.length || !els.gymPickerBody) return;
+  const group = document.createElement('section');
+  group.className = 'fl-gym-picker-group';
+  const heading = document.createElement('h4');
+  heading.textContent = label;
+  group.appendChild(heading);
+  activities.forEach((activity) => {
+    group.appendChild(gymPickerButton(activity.name, () => {
+      if (gymHasVariants(activity.name)) {
+        renderGymVariantPicker(activity);
+        return;
+      }
+      addGymActivityToDate(activity);
+      closeGymPicker();
+    }));
+  });
+  els.gymPickerBody.appendChild(group);
+}
+
+function renderGymExercisePicker() {
+  if (!els.gymPickerBody) return;
+  els.gymPickerTitle.textContent = 'Add Exercise';
+  if (els.gymPickerBack) els.gymPickerBack.hidden = true;
+  els.gymPickerBody.innerHTML = '';
+
+  const customGroup = document.createElement('section');
+  customGroup.className = 'fl-gym-picker-group';
+  const customHead = document.createElement('h4');
+  customHead.textContent = 'Custom';
+  customGroup.appendChild(customHead);
+  [
+    { kind: 'weight', name: CUSTOM_WEIGHT_LABEL },
+    { kind: 'cardio', name: CUSTOM_CARDIO_LABEL },
+  ].forEach((item) => {
+    customGroup.appendChild(gymPickerButton(item.name, () => {
+      const name = window.prompt('Custom exercise name') || '';
+      const saved = saveGymCustomActivity(item.kind, name);
+      if (!saved) return;
+      addGymActivityToDate(saved);
+      closeGymPicker();
+    }));
+  });
+  loadGymCustoms().forEach((activity) => {
+    customGroup.appendChild(gymPickerButton(activity.name, () => {
+      addGymActivityToDate(activity);
+      closeGymPicker();
+    }));
+  });
+  els.gymPickerBody.appendChild(customGroup);
+
+  WEIGHT_GROUP_ORDER.forEach((group) => {
+    appendGymPickerGroup(group, GYM_ACTIVITIES.filter((a) => a.group === group));
+  });
+  appendGymPickerGroup('Cardio', GYM_ACTIVITIES.filter((a) => a.group === 'Cardio'));
+}
+
+function renderGymVariantPicker(activity) {
+  if (!els.gymPickerBody) return;
+  els.gymPickerTitle.textContent = activity.name;
+  if (els.gymPickerBack) els.gymPickerBack.hidden = false;
+  els.gymPickerBody.innerHTML = '';
+  const group = document.createElement('section');
+  group.className = 'fl-gym-picker-group fl-gym-variant-group';
+  const heading = document.createElement('h4');
+  heading.textContent = 'Type';
+  group.appendChild(heading);
+  gymVariantsFor(activity.name).forEach((variant) => {
+    group.appendChild(gymPickerButton(variant || 'Default', () => {
+      addGymActivityToDate(activity, variant);
+      closeGymPicker();
+    }, variant ? '' : 'fl-gym-picker-default-option'));
+  });
+  els.gymPickerBody.appendChild(group);
+}
+
+function openGymPicker() {
+  if (gymLocked || !els.gymPicker) return;
+  showGymValidation(null);
+  renderGymExercisePicker();
+  els.gymPicker.hidden = false;
+}
+
 function addActivity() {
   if (gymLocked) return;
   showGymValidation(null);
@@ -2402,6 +2608,12 @@ function addActivity() {
     return;
   }
   if (activity.custom) saveGymCustomActivity(activity.kind, activity.name);
+  addGymActivityToDate(activity);
+}
+
+function addGymActivityToDate(activity, variant = null) {
+  if (gymLocked || !activity?.kind || !activity?.name) return;
+  const selectedVariant = activity.kind === 'cardio' ? '' : (variant == null ? defaultGymVariant(activity.name) : variant);
   const date = selectedGymDate || todayISO();
   const all = gymDraftData();
   const day = gymDay(all, date);
@@ -2410,15 +2622,14 @@ function addActivity() {
     id: uid(),
     name: activity.name || '',
     kind: activity.kind,
+    variant: selectedVariant,
     rows: suggestedGymRows(activity.kind, activity.name),
   });
   all[date] = day;
   markGymDraftChanged(date);
-  if (activity.custom) {
-    els.gymCustomName.value = '';
-    renderGymActivityOptions();
-    ensureGymActivityDatalist();
-  }
+  if (activity.custom && els.gymCustomName) els.gymCustomName.value = '';
+  renderGymActivityOptions();
+  ensureGymActivityDatalist();
   renderGym();
 }
 
@@ -2544,6 +2755,10 @@ function gymDaySummary(day) {
   const activities = Array.isArray(day?.activities) ? day.activities : [];
   const named = activities.filter((a) => String(a?.name || '').trim());
   const rows = named.reduce((sum, a) => sum + (Array.isArray(a.rows) ? a.rows.length : 0), 0);
+  const sets = named.reduce((sum, a) => {
+    if (a.kind === 'cardio') return sum;
+    return sum + (Array.isArray(a.rows) ? a.rows.length : 0);
+  }, 0);
   const weightKg = named.reduce((sum, a) => {
     if (a.kind === 'cardio') return sum;
     return sum + (Array.isArray(a.rows) ? a.rows.reduce((s, r) => s + num(r.kg), 0) : 0);
@@ -2559,20 +2774,26 @@ function gymDaySummary(day) {
   return {
     activities: named.length,
     rows,
+    sets,
     weightKg,
     weightReps,
     cardioMin,
+    move: weightReps + cardioMin,
     hasNote: !!String(day?.note || '').trim(),
   };
 }
 
 function cloneGymActivities(activities) {
-  return (activities || []).map((a) => ({
-    id: uid(),
-    name: a.name || '',
-    kind: a.kind === 'cardio' ? 'cardio' : 'weight',
-    rows: defaultGymRows(a.kind === 'cardio' ? 'cardio' : 'weight', a.rows, a.name),
-  }));
+  return (activities || []).map((a) => {
+    const normalized = normalizeGymActivityRecord(a);
+    return {
+      id: uid(),
+      name: normalized.name || '',
+      kind: normalized.kind,
+      variant: normalized.variant || '',
+      rows: defaultGymRows(normalized.kind, normalized.rows, normalized.name),
+    };
+  });
 }
 
 function saveCurrentGymAsFavourite() {
@@ -2610,6 +2831,8 @@ function applyGymFavourite(favId) {
   day.activities = cloneGymActivities(fav.activities);
   all[selectedGymDate] = day;
   markGymDraftChanged(selectedGymDate);
+  if (els.gymPreset) els.gymPreset.value = '';
+  if (els.gymFavName) els.gymFavName.value = '';
   renderGym();
 }
 
@@ -2645,6 +2868,7 @@ function setGymFavActivityAt(favId, activityIdx, name) {
       id: current?.id || uid(),
       name: preset.name,
       kind: preset.kind,
+      variant: preset.kind === 'cardio' ? '' : (preset.name === current?.name ? current.variant || defaultGymVariant(preset.name) : defaultGymVariant(preset.name)),
       rows: defaultGymRows(preset.kind, preset.kind === current?.kind ? current.rows : [], preset.name),
     };
   });
@@ -2654,6 +2878,10 @@ function updateGymFavMetric(favId, activityIdx, setIdx, key, value) {
   updateGymFavourite(favId, (fav) => {
     const a = fav.activities?.[activityIdx];
     if (!a) return;
+    if (key === 'variant') {
+      a.variant = String(value || '');
+      return;
+    }
     a.rows = defaultGymRows(a.kind, a.rows, a.name);
     if (!a.rows[setIdx]) a.rows[setIdx] = blankGymRow(a.kind);
     a.rows[setIdx][key] = String(value);
@@ -2750,6 +2978,7 @@ function setGymActivityAt(activityIdx, name) {
     id: current?.id || uid(),
     name: preset.name,
     kind: preset.kind,
+    variant: preset.kind === 'cardio' ? '' : (preset.name === current?.name ? current.variant || defaultGymVariant(preset.name) : defaultGymVariant(preset.name)),
     rows: defaultGymRows(preset.kind, preset.kind === current?.kind ? current.rows : [], preset.name),
   };
   all[selectedGymDate] = day;
@@ -2765,6 +2994,12 @@ function updateGymActivityMetric(activityIdx, setIdx, key, value) {
   const day = gymDay(all, selectedGymDate);
   const a = day.activities?.[activityIdx];
   if (!a) return;
+  if (key === 'variant') {
+    a.variant = String(value || '');
+    all[selectedGymDate] = day;
+    markGymDraftChanged(selectedGymDate);
+    return;
+  }
   a.rows = defaultGymRows(a.kind, a.rows, a.name);
   if (!a.rows[setIdx]) a.rows[setIdx] = blankGymRow(a.kind);
   a.rows[setIdx][key] = String(value);
@@ -2846,6 +3081,27 @@ function gymMetricInput(value, key, onChange) {
   return input;
 }
 
+function gymVariantInput(activityName, value, onChange) {
+  const variants = gymVariantsFor(activityName);
+  if (variants.some((variant) => variant)) {
+    const select = document.createElement('select');
+    select.className = 'fl-gym-variant-select';
+    variants.forEach((variant) => {
+      const opt = document.createElement('option');
+      opt.value = variant;
+      opt.textContent = variant || '';
+      select.appendChild(opt);
+    });
+    select.value = variants.includes(value) ? value : '';
+    select.addEventListener('change', () => onChange(select.value));
+    return select;
+  }
+  const span = document.createElement('span');
+  span.className = 'fl-gym-variant-empty';
+  span.textContent = '';
+  return span;
+}
+
 function renderGymSection(container, activities, opts = {}) {
   container.innerHTML = '';
   const list = Array.isArray(activities) ? activities : [];
@@ -2855,10 +3111,11 @@ function renderGymSection(container, activities, opts = {}) {
   const onInsertSet = opts.onInsertSet || insertSetBelow;
   const onRemoveSet = opts.onRemoveSet || removeSet;
   const onRemoveActivity = opts.onRemoveActivity || removeGymActivity;
+  const activitySelect = opts.activitySelect !== false;
   const table = document.createElement('table');
   table.className = 'fl-gym-koala-table';
   const colgroup = document.createElement('colgroup');
-  ['fl-gym-activity-col', 'fl-gym-metric-col', 'fl-gym-metric-col', 'fl-gym-metric-col', 'fl-gym-actions-width-col'].forEach((className) => {
+  ['fl-gym-activity-col', 'fl-gym-type-col', 'fl-gym-metric-col', 'fl-gym-metric-col', 'fl-gym-actions-width-col'].forEach((className) => {
     const col = document.createElement('col');
     col.className = className;
     colgroup.appendChild(col);
@@ -2867,10 +3124,10 @@ function renderGymSection(container, activities, opts = {}) {
   const thead = document.createElement('thead');
   const head = document.createElement('tr');
   [
-    ['Exercise'],
-    ['Set', 'Speed'],
-    ['Kg', 'Incline'],
-    ['Rep', 'Min'],
+    ['Weight Train /', 'Cardio'],
+    ['Type /', 'Incline'],
+    ['Kg /', 'Speed'],
+    ['Rep /', 'Min'],
     [''],
   ].forEach((parts) => {
     const th = document.createElement('th');
@@ -2900,8 +3157,15 @@ function renderGymSection(container, activities, opts = {}) {
         tdActivity.rowSpan = sets.length;
         const activityBox = document.createElement('div');
         activityBox.className = 'fl-gym-activity-box';
-        const select = gymOptionSelect(a?.name || '', activityIdx, locked, onActivityChange);
-        activityBox.appendChild(select);
+        if (activitySelect) {
+          const select = gymOptionSelect(a?.name || '', activityIdx, locked, onActivityChange);
+          activityBox.appendChild(select);
+        } else {
+          const label = document.createElement('strong');
+          label.className = 'fl-gym-activity-name-label';
+          label.textContent = a?.name || '';
+          activityBox.appendChild(label);
+        }
         if (a && !locked) {
           activityBox.appendChild(gymActionButton('×', 'Remove activity', () => onRemoveActivity(activityIdx), 'fl-gym-activity-delete'));
         } else {
@@ -2917,7 +3181,7 @@ function renderGymSection(container, activities, opts = {}) {
       td.className = 'fl-gym-actions-col';
       if (a) {
         if (a.kind === 'cardio') {
-          ['speed', 'incline', 'time'].forEach((key) => {
+          ['incline', 'speed', 'time'].forEach((key) => {
             const tdMetric = document.createElement('td');
             tdMetric.className = 'fl-gym-metric-cell';
             if (locked) {
@@ -2928,10 +3192,17 @@ function renderGymSection(container, activities, opts = {}) {
             tr.appendChild(tdMetric);
           });
         } else {
-          const tdSet = document.createElement('td');
-          tdSet.className = 'fl-gym-set-label';
-          tdSet.textContent = `Set ${setIdx + 1}`;
-          tr.appendChild(tdSet);
+          if (setIdx === 0) {
+            const tdVariant = document.createElement('td');
+            tdVariant.className = 'fl-gym-metric-cell fl-gym-variant-cell';
+            tdVariant.rowSpan = sets.length;
+            if (locked) {
+              tdVariant.textContent = a.variant || '—';
+            } else {
+              tdVariant.appendChild(gymVariantInput(a.name, a.variant || '', (value) => onMetricChange(activityIdx, 0, 'variant', value)));
+            }
+            tr.appendChild(tdVariant);
+          }
           ['kg', 'rep'].forEach((key) => {
             const tdMetric = document.createElement('td');
             tdMetric.className = 'fl-gym-metric-cell';
@@ -2982,26 +3253,48 @@ function renderGymSummary(day) {
   if (!els.gymSummary) return;
   const info = gymDaySummary(day);
   els.gymSummary.innerHTML = '';
-  els.gymSummary.className = 'fl-gym-summary fl-gym-summary-banner';
+  els.gymSummary.className = 'fl-kcal-hero fl-gym-dashboard';
+  const value = document.createElement('strong');
+  value.appendChild(document.createTextNode(fmtNum(info.move, 0)));
+  const unit = document.createElement('span');
+  unit.className = 'fl-kcal-unit';
+  unit.textContent = 'MOVE';
+  value.appendChild(unit);
+
+  const status = document.createElement('span');
+  status.className = 'fl-kcal-remain';
+  if (info.move === 0) {
+    status.textContent = 'BURN THE ZERO. GO 🏃';
+  } else if (info.move < 200) {
+    status.textContent = 'BURNING LIKE FIRE 🔥';
+  } else {
+    status.textContent = 'MASSIVE BURN! EQUAL RECOVERY. 🧘';
+  }
+
+  const metrics = document.createElement('div');
+  metrics.className = 'fl-macro-line';
   [
-    [String(info.activities), 'exe', '📋'],
-    [fmtNum(info.weightKg, 0), 'kg', 'dumbbell'],
-    [fmtNum(info.weightReps, 0), 'rep', '🔁'],
-    [fmtNum(info.cardioMin, 0), 'min', '🏃'],
-  ].forEach(([value, label, icon]) => {
+    ['📋', 'EXE', fmtNum(info.activities, 0)],
+    ['dumbbell', 'KG', fmtNum(info.weightKg, 0)],
+    ['🔁', 'REP', fmtNum(info.weightReps, 0)],
+    ['🏃', 'MIN', fmtNum(info.cardioMin, 0)],
+  ].forEach(([icon, metricValue, label]) => {
     const item = document.createElement('span');
-    const top = document.createElement('b');
-    const strong = document.createElement('strong');
-    strong.textContent = String(value);
-    const iconEl = icon === 'dumbbell' ? createDumbbellIcon('fl-gym-summary-dumbbell') : document.createElement('small');
-    if (icon !== 'dumbbell') iconEl.textContent = icon;
-    const caption = document.createElement('em');
-    caption.textContent = label;
-    item.title = label;
-    top.append(strong, iconEl);
-    item.append(top, caption);
-    els.gymSummary.appendChild(item);
+    item.className = 'fl-macro-chip';
+    const iconEl = icon === 'dumbbell' ? createDumbbellIcon('fl-macro-icon fl-gym-macro-dumbbell') : document.createElement('span');
+    if (icon !== 'dumbbell') {
+      iconEl.className = 'fl-macro-icon';
+      iconEl.textContent = icon;
+    }
+    const labelEl = document.createElement('span');
+    labelEl.className = 'fl-gym-macro-label';
+    labelEl.textContent = metricValue;
+    const valueEl = document.createElement('strong');
+    valueEl.textContent = label;
+    item.append(iconEl, labelEl, valueEl);
+    metrics.appendChild(item);
   });
+  els.gymSummary.append(value, status, metrics);
 }
 
 function renderGym() {
@@ -3014,16 +3307,19 @@ function renderGym() {
   renderGymSummary(day);
   renderGymSection(els.gymTable, day.activities, {
     locked: gymLocked,
+    showDraft: false,
+    activitySelect: false,
   });
   renderGymSavedTime(day);
   if (els.gymLockBtn) {
-    els.gymLockBtn.textContent = gymLocked ? '🔓 Unlock' : '🔒 Lock';
-    els.gymLockBtn.title = gymLocked ? 'Unlock GymLog for editing' : 'Lock and log GymLog';
+    els.gymLockBtn.textContent = gymLocked ? 'Modify' : 'Save';
+    els.gymLockBtn.title = gymLocked ? 'Modify GymLog' : 'Save GymLog';
     els.gymLockBtn.setAttribute('aria-pressed', gymLocked ? 'true' : 'false');
     els.gymLockBtn.classList.toggle('fl-gym-unlock-btn', gymLocked);
   }
+  if (els.gymAddExercise) els.gymAddExercise.disabled = gymLocked;
   if (els.gymPreset) els.gymPreset.disabled = gymLocked;
-  if (els.gymClearDay) els.gymClearDay.disabled = gymLocked;
+  if (els.gymClearDay) els.gymClearDay.disabled = false;
   if (els.gymNoteShell) {
     els.gymNoteShell.innerHTML = '';
     els.gymNoteShell.appendChild(buildGymNoteField(day.note || '', (text) => setGymNote(selectedGymDate, text), gymLocked));
@@ -3077,7 +3373,7 @@ function renderMomentum() {
   const daily = loadDaily();
   const gym = loadGym();
   const foodByDate = {};
-  const exerciseByDate = {};
+  const moveByDate = {};
   let kcalSum = 0;
   let kcalDays = 0;
   let activeDays = 0;
@@ -3090,9 +3386,9 @@ function renderMomentum() {
       kcalSum += kcal;
       kcalDays += 1;
     }
-    const exerciseCount = gymDaySummary(gym[iso]).activities;
-    exerciseByDate[iso] = exerciseCount;
-    if (exerciseCount > 0) activeDays += 1;
+    const move = gymDaySummary(gym[iso]).move;
+    moveByDate[iso] = move;
+    if (move > 0) activeDays += 1;
   }
 
   els.momentumSummary.innerHTML = '';
@@ -3136,7 +3432,7 @@ function renderMomentum() {
       food.textContent = foodByDate[iso] > 0 ? `${fmtNum(foodByDate[iso], 0)} ${ICON_LEAF}` : '-';
       const gymLine = document.createElement('span');
       gymLine.className = 'fl-momentum-gym-line';
-      gymLine.textContent = exerciseByDate[iso] > 0 ? `${exerciseByDate[iso]} ${ICON_FIRE}` : '-';
+      gymLine.textContent = moveByDate[iso] > 0 ? `${fmtNum(moveByDate[iso], 0)} ${ICON_FIRE}` : '-';
       td.append(dayNum, food, gymLine);
       tr.appendChild(td);
       currentDay += 1;
@@ -3148,12 +3444,14 @@ function renderMomentum() {
 }
 
 function clearGymDay() {
-  if (gymLocked) return;
   const date = selectedGymDate || todayISO();
   if (!confirm(`Reset GymLog for ${date}? Workout rows will return to Add exercise.`)) return;
   const all = gymDraftData();
   delete all[date];
-  markGymDraftChanged(date);
+  saveGym(cloneGymLog(all));
+  resetGymDraft();
+  gymLocked = false;
+  showGymValidation(null);
   renderGym();
 }
 
@@ -3166,10 +3464,20 @@ els.gymActivity.addEventListener('change', () => {
 });
 els.gymLogBtn.addEventListener('click', addActivity);
 els.gymLockBtn.addEventListener('click', toggleGymLock);
+if (els.gymAddExercise) els.gymAddExercise.addEventListener('click', openGymPicker);
+if (els.gymPickerClose) els.gymPickerClose.addEventListener('click', closeGymPicker);
+if (els.gymPickerBack) els.gymPickerBack.addEventListener('click', renderGymExercisePicker);
+if (els.gymPicker) {
+  els.gymPicker.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-gym-picker-close]')) closeGymPicker();
+  });
+}
 if (els.gymSaveFav) els.gymSaveFav.addEventListener('click', saveCurrentGymAsFavourite);
 if (els.gymPreset) els.gymPreset.addEventListener('change', () => applyGymFavourite(els.gymPreset.value));
 els.gymDate.addEventListener('change', () => {
   selectedGymDate = els.gymDate.value || todayISO();
+  resetGymDraft();
+  gymLocked = false;
   renderGym();
 });
 els.gymClearDay.addEventListener('click', clearGymDay);
@@ -3528,21 +3836,21 @@ function exportGymCSV() {
   const date = selectedGymDate || todayISO();
   const all = gymDraftData();
   const day = gymDay(all, date);
-  const rows = [['date', 'type', 'activity_idx', 'activity', 'set_idx', 'kg', 'rep', 'speed', 'incline', 'time_min']];
+  const rows = [['date', 'type', 'activity_idx', 'activity', 'set_idx', 'variant', 'kg', 'rep', 'speed', 'incline', 'time_min']];
   (day.activities || []).forEach((a, ai) => {
     const setRows = Array.isArray(a.rows) && a.rows.length ? a.rows : [{}];
     setRows.forEach((r, si) => {
       if (a.kind === 'cardio') {
-        rows.push([date, 'cardio', ai + 1, a.name || '', si + 1, '', '',
+        rows.push([date, 'cardio', ai + 1, a.name || '', si + 1, '', '', '',
           r.speed ?? '', r.incline ?? '', r.time ?? '']);
       } else {
         rows.push([date, 'weight', ai + 1, a.name || '', si + 1,
-          r.kg ?? '', r.rep ?? '', '', '', '']);
+          a.variant ?? '', r.kg ?? '', r.rep ?? '', '', '', '']);
       }
     });
   });
   if (day.note && String(day.note).trim()) {
-    rows.push([date, 'note', '', '', '', '', '', '', '', String(day.note).trim()]);
+    rows.push([date, 'note', '', '', '', '', '', '', '', '', String(day.note).trim()]);
   }
   downloadCSV(`fitlog_gym_${date}.csv`, rows);
 }
