@@ -14,9 +14,10 @@ Push Lower,weight,Hip Thrust,barbell/dumbbell|machine
 Push Lower,weight,Leg Extension,machine
 Push Lower,weight,Leg Press,machine
 Push Lower,weight,Lunge,barbell/dumbbell
-Push Lower,weight,Squat,barbell/dumbbell|machine (hack)|Smith machine
+Push Lower,weight,Regular Squat,barbell/dumbbell|machine (hack)|Smith machine
+Push Lower,weight,Sumo Squat,barbell/dumbbell
 Pull Upper,weight,Bicep Curl,barbell/dumbbell|cable|machine
-Pull Upper,weight,Face Pull - cable,cable
+Pull Upper,weight,Face Pull,cable
 Pull Upper,weight,Lat Pulldown,cable|machine
 Pull Upper,weight,Pull-Up,bodyweight|assisted machine
 Pull Upper,weight,Pullover,barbell/dumbbell|cable
@@ -24,6 +25,7 @@ Pull Upper,weight,Reverse Fly,barbell/dumbbell|cable|machine (rear delt)
 Pull Upper,weight,Row,barbell/dumbbell|cable (seated)|machine|T-bar
 Pull Upper,weight,Shrug,barbell/dumbbell
 Pull Lower,weight,Deadlift,barbell/dumbbell|Smith machine|trap bar
+Pull Lower,weight,Sumo Deadlift,barbell/dumbbell
 Pull Lower,weight,Romanian Deadlift,barbell/dumbbell
 Pull Lower,weight,Good Morning,barbell/dumbbell
 Pull Lower,weight,Leg Curl,machine

@@ -108,9 +108,10 @@ const FALLBACK_GYM_ACTIVITIES = [
   { group: 'Push Lower', kind: 'weight', name: 'Leg Extension' },
   { group: 'Push Lower', kind: 'weight', name: 'Leg Press' },
   { group: 'Push Lower', kind: 'weight', name: 'Lunge' },
-  { group: 'Push Lower', kind: 'weight', name: 'Squat' },
+  { group: 'Push Lower', kind: 'weight', name: 'Regular Squat' },
+  { group: 'Push Lower', kind: 'weight', name: 'Sumo Squat' },
   { group: 'Pull Upper', kind: 'weight', name: 'Bicep Curl' },
-  { group: 'Pull Upper', kind: 'weight', name: 'Face Pull - cable' },
+  { group: 'Pull Upper', kind: 'weight', name: 'Face Pull' },
   { group: 'Pull Upper', kind: 'weight', name: 'Lat Pulldown' },
   { group: 'Pull Upper', kind: 'weight', name: 'Pull-Up' },
   { group: 'Pull Upper', kind: 'weight', name: 'Pullover' },
@@ -118,6 +119,7 @@ const FALLBACK_GYM_ACTIVITIES = [
   { group: 'Pull Upper', kind: 'weight', name: 'Row' },
   { group: 'Pull Upper', kind: 'weight', name: 'Shrug' },
   { group: 'Pull Lower', kind: 'weight', name: 'Deadlift' },
+  { group: 'Pull Lower', kind: 'weight', name: 'Sumo Deadlift' },
   { group: 'Pull Lower', kind: 'weight', name: 'Romanian Deadlift' },
   { group: 'Pull Lower', kind: 'weight', name: 'Good Morning' },
   { group: 'Pull Lower', kind: 'weight', name: 'Leg Curl' },
@@ -158,6 +160,7 @@ const GYM_ACTIVITY_ALIASES = {
   'Dip - machine (assisted)': { name: 'Dip', variant: 'assisted machine' },
   'Front Raise - barbell/dumbbell': { name: 'Front Raise', variant: 'barbell/dumbbell' },
   'Front Raise - cable': { name: 'Front Raise', variant: 'cable' },
+  'Face Pull - cable': { name: 'Face Pull', variant: 'cable' },
   'Good Morning - barbell/dumbbell': { name: 'Good Morning', variant: 'barbell/dumbbell' },
   'Hip Thrust - barbell/dumbbell': { name: 'Hip Thrust', variant: 'barbell/dumbbell' },
   'Hip Thrust - machine': { name: 'Hip Thrust', variant: 'machine' },
@@ -181,6 +184,7 @@ const GYM_ACTIVITY_ALIASES = {
   'Reverse Fly - cable': { name: 'Reverse Fly', variant: 'cable' },
   'Reverse Fly - machine (rear delt)': { name: 'Reverse Fly', variant: 'machine (rear delt)' },
   'Romanian Deadlift - barbell/dumbbell': { name: 'Romanian Deadlift', variant: 'barbell/dumbbell' },
+  'RDL': { name: 'Romanian Deadlift', variant: 'barbell/dumbbell' },
   'Row - barbell/dumbbell': { name: 'Row', variant: 'barbell/dumbbell' },
   'Row - cable (seated)': { name: 'Row', variant: 'cable (seated)' },
   'Row - machine': { name: 'Row', variant: 'machine' },
@@ -190,12 +194,22 @@ const GYM_ACTIVITY_ALIASES = {
   'Shoulder Press - Smith machine': { name: 'Shoulder Press', variant: 'Smith machine' },
   'Shrug - barbell/dumbbell': { name: 'Shrug', variant: 'barbell/dumbbell' },
   'Skull Crusher - barbell/dumbbell': { name: 'Skull Crusher', variant: 'barbell/dumbbell' },
-  'Squat - barbell/dumbbell': { name: 'Squat', variant: 'barbell/dumbbell' },
-  'Squat - barbell/dumbbell (back)': { name: 'Squat', variant: 'barbell/dumbbell' },
-  'Squat - barbell/dumbbell (front)': { name: 'Squat', variant: 'barbell/dumbbell' },
-  'Squat - barbell/dumbbell (goblet)': { name: 'Squat', variant: 'barbell/dumbbell' },
-  'Squat - machine (hack)': { name: 'Squat', variant: 'machine (hack)' },
-  'Squat - Smith machine': { name: 'Squat', variant: 'Smith machine' },
+  'Squat': { name: 'Regular Squat', variant: 'barbell/dumbbell' },
+  'Squat - barbell/dumbbell': { name: 'Regular Squat', variant: 'barbell/dumbbell' },
+  'Squat - barbell/dumbbell (back)': { name: 'Regular Squat', variant: 'barbell/dumbbell' },
+  'Squat - barbell/dumbbell (front)': { name: 'Regular Squat', variant: 'barbell/dumbbell' },
+  'Squat - barbell/dumbbell (goblet)': { name: 'Regular Squat', variant: 'barbell/dumbbell' },
+  'Squat - machine (hack)': { name: 'Regular Squat', variant: 'machine (hack)' },
+  'Squat - Smith machine': { name: 'Regular Squat', variant: 'Smith machine' },
+  'Back Squat': { name: 'Regular Squat', variant: 'barbell/dumbbell' },
+  'Back Squat - barbell/dumbbell': { name: 'Regular Squat', variant: 'barbell/dumbbell' },
+  'Back Squat - machine (hack)': { name: 'Regular Squat', variant: 'machine (hack)' },
+  'Back Squat - Smith machine': { name: 'Regular Squat', variant: 'Smith machine' },
+  'Regular Squat - barbell/dumbbell': { name: 'Regular Squat', variant: 'barbell/dumbbell' },
+  'Regular Squat - machine (hack)': { name: 'Regular Squat', variant: 'machine (hack)' },
+  'Regular Squat - Smith machine': { name: 'Regular Squat', variant: 'Smith machine' },
+  'Sumo Squat - barbell/dumbbell': { name: 'Sumo Squat', variant: 'barbell/dumbbell' },
+  'Sumo Deadlift - barbell/dumbbell': { name: 'Sumo Deadlift', variant: 'barbell/dumbbell' },
   'Tricep Extension - barbell/dumbbell': { name: 'Tricep Extension', variant: 'barbell/dumbbell' },
   'Tricep Extension - barbell/dumbbell (overhead)': { name: 'Tricep Extension', variant: 'barbell/dumbbell' },
   'Tricep Extension - cable': { name: 'Tricep Extension', variant: 'cable' },
@@ -215,7 +229,7 @@ const FALLBACK_GYM_VARIANTS = {
   'Hip Thrust': ['barbell/dumbbell', 'machine'],
   'Lat Pulldown': ['cable', 'machine'],
   'Lateral Raise': ['barbell/dumbbell', 'cable', 'machine'],
-  'Face Pull - cable': ['cable'],
+  'Face Pull': ['cable'],
   'Good Morning': ['barbell/dumbbell'],
   'Leg Curl': ['machine'],
   'Leg Extension': ['machine'],
@@ -230,7 +244,9 @@ const FALLBACK_GYM_VARIANTS = {
   'Shoulder Press': ['barbell/dumbbell', 'machine', 'Smith machine'],
   'Shrug': ['barbell/dumbbell'],
   'Skull Crusher': ['barbell/dumbbell'],
-  'Squat': ['barbell/dumbbell', 'machine (hack)', 'Smith machine'],
+  'Regular Squat': ['barbell/dumbbell', 'machine (hack)', 'Smith machine'],
+  'Sumo Squat': ['barbell/dumbbell'],
+  'Sumo Deadlift': ['barbell/dumbbell'],
   'Tricep Extension': ['barbell/dumbbell', 'cable', 'machine'],
   'Tricep Pushdown': ['cable'],
 };
@@ -239,6 +255,28 @@ const GYM_VARIANTS = (typeof window !== 'undefined'
   && typeof window.FITLOG_HOST_GYM_VARIANTS === 'object')
   ? window.FITLOG_HOST_GYM_VARIANTS
   : FALLBACK_GYM_VARIANTS;
+
+const GYM_WEIGHT_DEFAULT_KG = {
+  'Chest Fly': '5',
+  'Front Raise': '5',
+  'Lateral Raise': '5',
+  'Push-Up': '50',
+  'Shoulder Press': '6',
+  'Tricep Extension': '15',
+  'Tricep Pushdown': '15',
+  'Calf Raise': '20',
+  'Hip Thrust': '60',
+  'Leg Extension': '20',
+  'Regular Squat': '30',
+  'Sumo Squat': '30',
+  'Face Pull': '15',
+  'Lat Pulldown': '25',
+  'Pull-Up': '25',
+  'Deadlift': '50',
+  'Romanian Deadlift': '50',
+  'Leg Curl': '20',
+  'Sumo Deadlift': '30',
+};
 
 const DEFAULT_SYSTEM_PROMPT = `You are a nutrition estimator. The user describes a meal in any language with portions and skip-eat notes. Output JSON ONLY in this exact shape:
 
@@ -2218,12 +2256,14 @@ function blankGymRow(kind) {
 
 function suggestedGymRows(kind, name = '') {
   if (kind === 'cardio') return [{ speed: '6', incline: '0', time: '20' }];
-  const lower = String(name).toLowerCase();
-  const kg = /leg press|squat|deadlift|hip thrust/.test(lower) ? '40'
+  const canonical = canonicalGymName(name);
+  const lower = String(canonical).toLowerCase();
+  const kg = GYM_WEIGHT_DEFAULT_KG[canonical]
+    || (/leg press|squat|deadlift|hip thrust/.test(lower) ? '40'
     : /bench|row|pulldown|press/.test(lower) ? '20'
       : /curl|raise|extension|fly/.test(lower) ? '8'
-        : '10';
-  return [{ kg, rep: '10' }, { kg, rep: '10' }, { kg, rep: '10' }];
+        : '10');
+  return [{ kg, rep: '12' }];
 }
 
 function defaultGymRows(kind, rows = [], name = '') {
