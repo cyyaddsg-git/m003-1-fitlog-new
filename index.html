@@ -4,12 +4,63 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fitlog-Koala</title>
-<link rel="stylesheet" href="./app.css" />
+<link rel="stylesheet" href="./app.css?v=2.5.0" />
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
 </head>
 <body>
+
+<section class="fl-update-gate" id="fl-update-gate" hidden aria-labelledby="fl-update-title" role="dialog" aria-modal="true">
+  <div class="fl-update-card">
+    <h2 id="fl-update-title">New Koala update available</h2>
+    <button type="button" class="fl-update-btn" id="fl-update-btn">Update Koala</button>
+    <small id="fl-update-version"></small>
+  </div>
+</section>
+
+<section class="fl-whatsnew-gate" id="fl-whatsnew-gate" hidden aria-labelledby="fl-whatsnew-title" role="dialog" aria-modal="true">
+  <div class="fl-whatsnew-card">
+    <header class="fl-whatsnew-head">
+      <small class="fl-whatsnew-eyebrow">UPDATED</small>
+      <h2 id="fl-whatsnew-title">What's new in <span id="fl-whatsnew-version">v2.5.0</span></h2>
+      <p class="fl-whatsnew-sub">Body composition tracking + your first monthly health report.</p>
+    </header>
+    <ul class="fl-whatsnew-list">
+      <li>
+        <span class="fl-whatsnew-icon" aria-hidden="true">🧬</span>
+        <div>
+          <strong>Body Composition Track</strong>
+          <p>Log your weight, muscle mass and body-fat reading from any scale, every day. The latest weight automatically updates your TDEE targets.</p>
+        </div>
+      </li>
+      <li>
+        <span class="fl-whatsnew-icon" aria-hidden="true">📊</span>
+        <div>
+          <strong>InBody-style scales</strong>
+          <p>See where your weight, muscle mass and body-fat mass sit against clinical zones — Under / Normal / Over / Obese, Athlete / Fit / Average / High — calibrated to your height and gender.</p>
+        </div>
+      </li>
+      <li>
+        <span class="fl-whatsnew-icon" aria-hidden="true">📄</span>
+        <div>
+          <strong>Monthly Health Report</strong>
+          <p>Download a clinician-style PDF, or have it emailed straight to your inbox. Covers body composition trends, nutrition adherence, movement volume — all derived from your own logs.</p>
+        </div>
+      </li>
+      <li>
+        <span class="fl-whatsnew-icon" aria-hidden="true">🎯</span>
+        <div>
+          <strong>Sticky TDEE target</strong>
+          <p>Your last-used target mode (Normal / Diet / High / Custom) carries forward to every new day instead of resetting.</p>
+        </div>
+      </li>
+    </ul>
+    <button type="button" class="fl-whatsnew-btn" id="fl-whatsnew-dismiss">Got it</button>
+  </div>
+</section>
 
 <header class="fl-app-header">
   <button type="button" class="fl-brand-logo" id="fl-brand-logo">Fitlog</button>
@@ -207,12 +258,10 @@
 
   <header class="fl-profile-head">
     <h2>Profile</h2>
+    <p class="fl-profile-sync" id="fl-profile-sync" hidden></p>
   </header>
 
-  <p class="fl-profile-sync" id="fl-profile-sync" hidden></p>
-
-  <section class="fl-profile-metrics">
-    <h2>Body Metrics</h2>
+  <section class="fl-profile-metrics fl-profile-metrics-merged">
     <label class="fl-profile-gender-row"><span class="fl-metric-label">Gender</span>
       <span class="fl-profile-gender-opts">
         <label><input type="radio" name="fl-profile-gender" value="male" /> Male</label>
@@ -255,7 +304,10 @@
           <tr id="fl-targets-row-diet"><td>Diet</td><td class="fl-num">—</td><td class="fl-num">—</td><td class="fl-num">—</td><td class="fl-num">—</td><td class="fl-num">—</td><td class="fl-num">—</td></tr>
           <tr id="fl-targets-row-high"><td>High</td><td class="fl-num">—</td><td class="fl-num">—</td><td class="fl-num">—</td><td class="fl-num">—</td><td class="fl-num">—</td><td class="fl-num">—</td></tr>
           <tr id="fl-targets-row-custom" class="fl-targets-custom-row">
-            <td>Custom</td>
+            <td class="fl-targets-custom-label">
+              <span>Custom</span>
+              <button type="button" id="fl-save-custom" class="fl-log-btn fl-save-custom-btn-inline" title="Save custom targets">Save</button>
+            </td>
             <td class="fl-num"><input type="number" id="fl-custom-kcal" min="500" max="5000" step="1" placeholder="—" /></td>
             <td class="fl-num"><input type="number" id="fl-custom-p" min="0" max="500" step="1" placeholder="—" /></td>
             <td class="fl-num"><input type="number" id="fl-custom-f" min="0" max="500" step="1" placeholder="—" /></td>
@@ -266,17 +318,49 @@
         </tbody>
       </table>
     </div>
-    <div class="fl-targets-copy-row">
-      <span class="fl-copy-from-label">Custom Setting:</span>
-      <select id="fl-profile-copy-from">
-        <option value="normal">Normal</option>
-        <option value="diet">Diet</option>
-        <option value="high">High</option>
-      </select>
-      <button type="button" id="fl-save-custom" class="fl-log-btn fl-save-custom-btn">Save</button>
-    </div>
+    <select id="fl-profile-copy-from" hidden><option value="normal">Normal</option><option value="diet">Diet</option><option value="high">High</option></select>
     <p class="fl-tdee-source">TDEE uses Mifflin-St Jeor + activity factor. Sugar WHO ≤ 10% of kcal. Fiber IOM 25 g F · 38 g M.</p>
   </section>
+
+  <section class="fl-profile-body">
+    <h2>Body Composition Track</h2>
+    <label class="fl-body-date-row"><span class="fl-metric-label">Date</span><input type="date" id="fl-body-date" /></label>
+    <label><span class="fl-metric-label">Weight (kg)</span><input type="number" id="fl-body-weight" min="20" max="300" step="0.1" placeholder="—" /></label>
+    <label><span class="fl-metric-label">Muscle mass (kg)</span><input type="number" id="fl-body-muscle" min="0" max="200" step="0.1" placeholder="—" /></label>
+    <label><span class="fl-metric-label">Body fat (%)</span><input type="number" id="fl-body-fat" min="0" max="70" step="0.1" placeholder="—" /></label>
+    <button type="button" id="fl-body-save" class="fl-log-btn fl-profile-save-btn">Save</button>
+    <p class="fl-body-last" id="fl-body-last"></p>
+    <div class="fl-inbody-scales" id="fl-inbody-scales" aria-label="Body composition analysis"></div>
+  </section>
+
+  <section class="fl-profile-report">
+    <h2>Monthly Health Report</h2>
+    <label class="fl-report-month-row"><span class="fl-metric-label">Month</span><select id="fl-report-month" aria-label="Report month"></select></label>
+    <div class="fl-report-actions">
+      <button type="button" id="fl-report-download" class="fl-log-btn">Download PDF</button>
+      <button type="button" id="fl-report-email" class="fl-log-btn fl-report-email-btn">Email to me</button>
+    </div>
+    <p class="fl-report-status" id="fl-report-status"></p>
+  </section>
+</section>
+
+<!-- ============ About Koala page (reachable via footer Koala/version) ============ -->
+<section class="fl-panel" data-panel="about" role="tabpanel" hidden>
+  <article class="fl-about-letter" aria-labelledby="fl-about-title">
+    <header class="fl-about-letter-head">
+      <h2 id="fl-about-title">Awareness, not Perfection</h2>
+    </header>
+
+    <div class="fl-about-letter-body">
+      <p>Fitlog-Koala started as a small personal tool used to track food intake and plan gym sessions. The motive was never about hitting a goal number perfectly, nor living an ultra-disciplined lifestyle.</p>
+      <p>Sometimes life gets busy and workouts are skipped. Sometimes dinner turns into fried chicken and bubble tea at 11pm.</p>
+      <p>These &ldquo;sometimes&rdquo; happen &mdash; and honestly, that is totally fine, as long as they stay as &ldquo;sometimes&rdquo;, right?</p>
+      <p>Here, we practise <strong>Awareness, not Perfection.</strong> The goal is not to obsess over numbers, but to understand our body, habits, and lifestyle a little better throughout the journey.</p>
+      <p>At the end of the day, I hope everyone can find their own balance and achieve both physical and mental wellness in life.</p>
+      <p>Thank you for being here.</p>
+      <p class="fl-about-signoff">Love,<br />K</p>
+    </div>
+  </article>
 </section>
 
 <!-- ============ Settings page (reachable via header Settings) ============ -->
@@ -332,11 +416,13 @@
 
 <footer class="fl-app-footer">
   <span>Powered by</span>
-  <span>Koala</span>
-  <span>v2.2.8</span>
+  <button type="button" class="fl-footer-link" id="fl-about-link">Koala v2.5.0</button>
+  <span aria-hidden="true">|</span>
+  <a class="fl-footer-link" href="mailto:genalphai.production@gmail.com?subject=Fitlog%20Koala%20feedback%20v2.5.0&body=Dear%20Koala%2C%0A">Feedback to K.</a>
 </footer>
 
-<script src="./lib/generated_libraries.js"></script>
-<script src="./app.js"></script>
+<script src="./lib/generated_libraries.js?v=2.5.0"></script>
+<script src="./app.js?v=2.5.0"></script>
+<script src="./report.js?v=2.5.0"></script>
 </body>
 </html>

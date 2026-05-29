@@ -6,12 +6,24 @@ Sign-in required, shared-Gemini-key meal logger, cloud-synced.
 - Repo: `https://github.com/cyyaddsg-git/m003-1-fitlog-new`
 - Stack: static HTML + JS for the client, one Vercel serverless function (`api/gemini.ts`) for the Gemini proxy.
 
+## Agent guidelines
+
+Agents must read `AGENTS.md` before working in this project. It records the standing project-development access grant and the localhost testing rule.
+
+House rule: use Git identity `cyyaddsg <cyy.addsg@gmail.com>` unless YY explicitly says otherwise.
+
+Live release rule: this `rel/` folder is the source Vercel deploys for M003-1. Do not push `dev/v2` as the live source. The May 21 rentamac `main` commit must remain identical to the claude-migration package unless YY explicitly requests a release.
+
 ## Local development
 
 ```sh
 # Local preview with /api/gemini proxy
-vercel dev --listen 8000
+npm run local
 ```
+
+Assigned local review URL: `http://localhost:8000/`.
+
+Click `open-localhost-safari.command` in this folder to open the assigned URL in Safari after the dev server is running. Firebase Auth treats `127.0.0.1` as a different authorized domain, so do not use the IP address for sign-in testing.
 
 For local meal preview, open the header Settings page and paste a Gemini API key into BYOK. When BYOK is saved, FitLog calls Google directly from this browser. If BYOK is blank, the app uses the host `/api/gemini` proxy, which requires `GEMINI_API_KEY` and `FIREBASE_PROJECT_ID=fitlog-koala` in `.env.local`.
 
@@ -31,6 +43,8 @@ For local meal preview, open the header Settings page and paste a Gemini API key
 ## Deploying
 
 Linked to Vercel project `fitlog-koala` under cyyaddsg-git. Pushes to `main` deploy automatically.
+
+Before pushing, confirm the remote, branch, this `rel/` source folder, and staged diff. Never include unrelated migrated workspace changes.
 
 ### Required Vercel env vars (production + preview)
 

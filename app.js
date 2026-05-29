@@ -7,6 +7,8 @@
 // ============ Constants ============
 
 const STORAGE_PREFIX = 'm003_1';
+const APP_VERSION = '2.5.0';
+const KEY_LAST_SEEN_VERSION = `${'m003_1'}_lastSeenVersion`;
 const KEY_APIKEY = `${STORAGE_PREFIX}_apiKey`;
 const KEY_MODEL = `${STORAGE_PREFIX}_model`;
 const KEY_PROMPT = `${STORAGE_PREFIX}_systemPrompt`;
@@ -21,6 +23,7 @@ const KEY_GYM = `${STORAGE_PREFIX}_gymLog`;
 const KEY_GYM_FAVS = `${STORAGE_PREFIX}_gymFavorites`;
 const KEY_GYM_CUSTOMS = `${STORAGE_PREFIX}_gymCustomExercises`;
 const KEY_PROFILE = `${STORAGE_PREFIX}_profile`;
+const KEY_BODY = `${STORAGE_PREFIX}_bodyLog`;
 
 const SUPPORTED_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 const DEFAULT_MODEL = 'gemini-3-flash-preview';
@@ -481,8 +484,8 @@ function saveDaily(d) {
 }
 function loadHistory() { return safeLS.getJSON(KEY_HISTORY, []); }
 function saveHistory(h) {
-  // Prune to 30 days
-  const pruned = h.slice(0, 30);
+  // Keep up to a year of recent foods; daily/gym/body logs are never pruned.
+  const pruned = h.slice(0, 365);
   safeLS.setJSON(KEY_HISTORY, pruned);
   syncToFirestore('foodHistory', pruned);
 }
@@ -560,11 +563,56 @@ function loadProfile() {
     height: null,
     activityLevel: 'sedentary',
     customTdee: { kcal: null, p: null, f: null, sugarMax: null, fiberMin: null },
+    defaultTargetMode: 'normal',
   });
 }
 function saveProfile(p) {
   safeLS.setJSON(KEY_PROFILE, p);
   syncToFirestore('profile', p);
+}
+
+function loadBody() { return safeLS.getJSON(KEY_BODY, {}); }
+function saveBody(b) {
+  safeLS.setJSON(KEY_BODY, b);
+  syncToFirestore('bodyLog', b);
+}
+function getBodyDay(iso) {
+  const d = loadBody()[iso];
+  return { w: d?.w ?? null, mm: d?.mm ?? null, bf: d?.bf ?? null };
+}
+function setBodyDay(iso, { w, mm, bf }) {
+  const all = loadBody();
+  const entry = {};
+  if (w != null) entry.w = w;
+  if (mm != null) entry.mm = mm;
+  if (bf != null) entry.bf = bf;
+  if (Object.keys(entry).length === 0) {
+    delete all[iso];
+  } else {
+    all[iso] = entry;
+  }
+  saveBody(all);
+  syncLatestWeightToProfile();
+}
+// Latest-dated body-log weight drives the profile weight used for BMR/TDEE.
+function syncLatestWeightToProfile() {
+  const all = loadBody();
+  let latestIso = null;
+  Object.keys(all).forEach((iso) => {
+    if (all[iso] && typeof all[iso].w === 'number' && all[iso].w > 0) {
+      if (latestIso == null || iso > latestIso) latestIso = iso;
+    }
+  });
+  if (latestIso == null) return;
+  const w = all[latestIso].w;
+  if (profileState && profileState.weight !== w) {
+    profileState.weight = w;
+    saveProfile(profileState);
+    if (els.profileWeight) els.profileWeight.value = w;
+    renderProfileSummary();
+    renderTargetsTable();
+    renderDaily();
+  }
 }
 
 // ============ Utilities ============
@@ -859,7 +907,7 @@ function fiberMinG(gender) {
 
 function targetForDate(date) {
   const all = loadDaily();
-  const mode = (all[date] && all[date].targetMode) || 'normal';
+  const mode = (all[date] && all[date].targetMode) || profileState.defaultTargetMode || 'normal';
   if (mode === 'none') return null;
   if (mode === 'custom') {
     const c = profileState.customTdee;
@@ -896,6 +944,12 @@ let gymDirtyDates = new Set();
 const els = {
   welcome: $('#fl-welcome'),
   welcomeSigninBtn: $('#fl-welcome-signin-btn'),
+  updateGate: $('#fl-update-gate'),
+  updateBtn: $('#fl-update-btn'),
+  updateVersion: $('#fl-update-version'),
+  whatsnewGate: $('#fl-whatsnew-gate'),
+  whatsnewVersion: $('#fl-whatsnew-version'),
+  whatsnewDismiss: $('#fl-whatsnew-dismiss'),
   brandLogo: $('#fl-brand-logo'),
   brandMotto: $('#fl-brand-motto'),
   tabsNav: $('#fl-tabs-nav'),
@@ -903,6 +957,7 @@ const els = {
   headerAuth: $('#fl-header-auth'),
   headerAccount: $('#fl-header-account'),
   headerThemeToggle: $('#fl-header-theme-toggle'),
+  aboutLink: $('#fl-about-link'),
   headerAvatar: $('#fl-header-avatar'),
   headerName: $('#fl-header-name'),
   profileSync: $('#fl-profile-sync'),
@@ -978,6 +1033,17 @@ const els = {
   profileWeight: $('#fl-profile-weight'),
   profileHeight: $('#fl-profile-height'),
   profileActivity: $('#fl-profile-activity'),
+  bodyDate: $('#fl-body-date'),
+  bodyWeight: $('#fl-body-weight'),
+  bodyMuscle: $('#fl-body-muscle'),
+  bodyFat: $('#fl-body-fat'),
+  bodySave: $('#fl-body-save'),
+  bodyLast: $('#fl-body-last'),
+  inbodyScales: $('#fl-inbody-scales'),
+  reportMonth: $('#fl-report-month'),
+  reportDownload: $('#fl-report-download'),
+  reportEmail: $('#fl-report-email'),
+  reportStatus: $('#fl-report-status'),
   profileSaveMetrics: $('#fl-profile-save-metrics'),
   profileSummaryText: $('#fl-profile-summary-text'),
   profileCopyFrom: $('#fl-profile-copy-from'),
@@ -999,6 +1065,101 @@ function setStatus(msg, kind) {
   els.status.hidden = false;
   els.status.textContent = msg;
   els.status.className = 'fl-status' + (kind === 'error' ? ' fl-status-error' : '');
+}
+
+function parseVersion(v) {
+  return String(v || '')
+    .split('.')
+    .map((part) => {
+      const n = Number.parseInt(part, 10);
+      return Number.isFinite(n) ? n : 0;
+    });
+}
+
+function compareVersions(a, b) {
+  const aa = parseVersion(a);
+  const bb = parseVersion(b);
+  const len = Math.max(aa.length, bb.length, 3);
+  for (let i = 0; i < len; i += 1) {
+    const av = aa[i] || 0;
+    const bv = bb[i] || 0;
+    if (av > bv) return 1;
+    if (av < bv) return -1;
+  }
+  return 0;
+}
+
+function updateUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('koalaUpdateTest');
+  url.searchParams.set('refresh', String(Date.now()));
+  return url.toString();
+}
+
+function showUpdateGate(latest) {
+  if (!els.updateGate) return;
+  els.updateGate.hidden = false;
+  document.body.classList.add('fl-update-required');
+  if (els.updateVersion) {
+    els.updateVersion.textContent = `Current ${APP_VERSION} · New ${latest}`;
+  }
+}
+
+// ---- What's-new gate (fires after a version upgrade) ----------------------
+// Shown once after the build's APP_VERSION exceeds the user's last-seen value.
+// Existing pre-v2.5.0 users have no lastSeen key but DO have data — detect
+// them via any existing localStorage payload and treat as upgrading. Only
+// truly brand-new users (no data at all) skip silently.
+function showWhatsNewIfUpgraded() {
+  if (!els.whatsnewGate) return;
+  const lastSeen = safeLS.get(KEY_LAST_SEEN_VERSION);
+  if (!lastSeen) {
+    const hasExistingData =
+      !!safeLS.get(KEY_PROFILE) ||
+      !!safeLS.get(KEY_DAILY) ||
+      !!safeLS.get(KEY_GYM) ||
+      !!safeLS.get(KEY_BODY);
+    if (!hasExistingData) {
+      // First-ever visit, never used the app: record version, skip overlay.
+      safeLS.set(KEY_LAST_SEEN_VERSION, APP_VERSION);
+      return;
+    }
+    // Returning user upgrading from a pre-v2.5.0 build → show the overlay.
+  } else if (compareVersions(APP_VERSION, lastSeen) <= 0) {
+    return;
+  }
+  if (els.whatsnewVersion) els.whatsnewVersion.textContent = `v${APP_VERSION}`;
+  els.whatsnewGate.hidden = false;
+  document.body.classList.add('fl-whatsnew-open');
+}
+function dismissWhatsNew() {
+  if (!els.whatsnewGate) return;
+  els.whatsnewGate.hidden = true;
+  document.body.classList.remove('fl-whatsnew-open');
+  safeLS.set(KEY_LAST_SEEN_VERSION, APP_VERSION);
+}
+if (els.whatsnewDismiss) els.whatsnewDismiss.addEventListener('click', dismissWhatsNew);
+
+async function checkForKoalaUpdate() {
+  try {
+    const testVersion = new URLSearchParams(window.location.search).get('koalaUpdateTest');
+    const localTest = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+    if (testVersion && localTest) {
+      if (compareVersions(testVersion, APP_VERSION) > 0) showUpdateGate(testVersion);
+      return;
+    }
+
+    const res = await fetch(`./version.json?ts=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    if (!res.ok) return;
+    const info = await res.json();
+    const latest = String(info.version || '').trim();
+    if (latest && compareVersions(latest, APP_VERSION) > 0) showUpdateGate(latest);
+  } catch (e) {
+    console.info('[fitlog] update check skipped', e);
+  }
 }
 
 function showBrandMotto() {
@@ -1092,7 +1253,7 @@ function applyKoalaMode(mode, persist = false) {
 }
 
 function showTab(name) {
-  if (currentUser && !profileComplete() && !['profile', 'settings'].includes(name)) {
+  if (currentUser && !profileComplete() && !['profile', 'settings', 'about'].includes(name)) {
     name = 'profile';
     setSyncStatus('Save metrics to unlock FitLog');
   }
@@ -2125,7 +2286,7 @@ function renderDaily() {
 
   // Sync target mode dropdown with stored mode for this date
   if (els.dailyTargetMode) {
-    const storedMode = (all[date] && all[date].targetMode) || 'normal';
+    const storedMode = (all[date] && all[date].targetMode) || profileState.defaultTargetMode || 'normal';
     els.dailyTargetMode.value = storedMode;
   }
 
@@ -3988,6 +4149,7 @@ async function syncAllToFirestore() {
   await syncToFirestore('gymFavorites', loadGymFavs());
   await syncToFirestore('gymCustomExercises', loadGymCustoms());
   await syncToFirestore('profile', profileState);
+  await syncToFirestore('bodyLog', loadBody());
 }
 
 async function syncFromFirestore() {
@@ -4043,6 +4205,11 @@ async function syncFromFirestore() {
         profileState = { ...loadProfile(), ...data };
         saveProfile(profileState);
         hasChanges = true;
+      } else if (category === 'bodyLog') {
+        const local = loadBody();
+        const merged = { ...local, ...data };
+        saveBody(merged);
+        hasChanges = true;
       }
     });
     
@@ -4053,6 +4220,7 @@ async function syncFromFirestore() {
       renderGym();
       renderMomentum();
       loadProfileIntoUI();
+      syncLatestWeightToProfile();
     }
     setSyncStatus('Synced from cloud');
   } catch (e) {
@@ -4173,6 +4341,191 @@ function loadProfileIntoUI() {
   if (els.profileActivity) els.profileActivity.value = p.activityLevel || 'sedentary';
   renderProfileSummary();
   renderTargetsTable();
+  loadBodyIntoUI();
+}
+
+function loadBodyIntoUI() {
+  if (!els.bodyDate) return;
+  if (!els.bodyDate.value) els.bodyDate.value = todayISO();
+  const d = getBodyDay(els.bodyDate.value);
+  if (els.bodyWeight) els.bodyWeight.value = d.w ?? '';
+  if (els.bodyMuscle) els.bodyMuscle.value = d.mm ?? '';
+  if (els.bodyFat) els.bodyFat.value = d.bf ?? '';
+  renderBodyLast();
+  renderInBodyScales(d);
+}
+
+// ============ InBody-style scales ============
+// Each scale is a horizontal 4-band bar with the user's value pinned and the
+// active band highlighted, matching the visual idiom of an InBody printout.
+
+function inbodyWeightBands(heightCm) {
+  const h = (heightCm || 165) / 100;
+  const w = (bmi) => +(bmi * h * h).toFixed(1);
+  return [
+    { label: 'Under', max: w(18.5), tone: 'warn' },
+    { label: 'Normal', max: w(25), tone: 'good' },
+    { label: 'Over', max: w(30), tone: 'warn' },
+    { label: 'Obese', max: w(40), tone: 'bad' },
+  ];
+}
+
+function inbodyMuscleBands(weightKg, gender) {
+  // Skeletal muscle ratio of body weight. Female ~30/35/40 thresholds; male ~35/42/48.
+  const w = weightKg || 60;
+  const t = gender === 'male'
+    ? [0.35, 0.42, 0.48]
+    : [0.30, 0.35, 0.40];
+  return [
+    { label: 'Low', max: +(w * t[0]).toFixed(1), tone: 'warn' },
+    { label: 'Normal', max: +(w * t[1]).toFixed(1), tone: 'good' },
+    { label: 'High', max: +(w * t[2]).toFixed(1), tone: 'good' },
+    { label: 'Athlete', max: +(w * 0.60).toFixed(1), tone: 'accent' },
+  ];
+}
+
+function inbodyFatBandsKg(weightKg, gender) {
+  // Convert the % thresholds to absolute fat mass in kg using current weight.
+  const w = weightKg || 60;
+  const k = (pct) => +(w * pct / 100).toFixed(1);
+  return gender === 'male'
+    ? [
+        { label: 'Athlete', max: k(13), tone: 'accent' },
+        { label: 'Fit', max: k(17), tone: 'good' },
+        { label: 'Average', max: k(24), tone: 'warn' },
+        { label: 'High', max: k(40), tone: 'bad' },
+      ]
+    : [
+        { label: 'Athlete', max: k(20), tone: 'accent' },
+        { label: 'Fit', max: k(24), tone: 'good' },
+        { label: 'Average', max: k(31), tone: 'warn' },
+        { label: 'High', max: k(50), tone: 'bad' },
+      ];
+}
+
+function renderInBodyScale(title, value, unit, bands, sub) {
+  const wrap = document.createElement('div');
+  wrap.className = 'fl-inbody-row';
+
+  const head = document.createElement('div');
+  head.className = 'fl-inbody-head';
+  const titleEl = document.createElement('span');
+  titleEl.className = 'fl-inbody-title';
+  titleEl.textContent = title;
+  const valEl = document.createElement('span');
+  valEl.className = 'fl-inbody-value';
+  valEl.textContent = value != null ? `${value} ${unit}` : `— ${unit}`;
+  if (sub) {
+    const subEl = document.createElement('small');
+    subEl.className = 'fl-inbody-sub';
+    subEl.textContent = ` · ${sub}`;
+    valEl.appendChild(subEl);
+  }
+  head.append(titleEl, valEl);
+  wrap.appendChild(head);
+
+  const bar = document.createElement('div');
+  bar.className = 'fl-inbody-bar';
+
+  const min = 0;
+  const max = bands[bands.length - 1].max;
+  let prev = min;
+  let activeIdx = -1;
+  if (value != null) {
+    for (let i = 0; i < bands.length; i++) {
+      if (value <= bands[i].max) { activeIdx = i; break; }
+    }
+    if (activeIdx === -1) activeIdx = bands.length - 1;
+  }
+
+  bands.forEach((b, i) => {
+    const seg = document.createElement('div');
+    seg.className = `fl-inbody-seg fl-inbody-tone-${b.tone}${i === activeIdx ? ' fl-inbody-seg-active' : ''}`;
+    const width = ((b.max - prev) / (max - min)) * 100;
+    seg.style.flex = `${width.toFixed(2)} 1 0`;
+    const lab = document.createElement('span');
+    lab.className = 'fl-inbody-seg-label';
+    lab.textContent = b.label;
+    seg.appendChild(lab);
+    bar.appendChild(seg);
+    prev = b.max;
+  });
+
+  if (value != null) {
+    const marker = document.createElement('div');
+    marker.className = 'fl-inbody-marker';
+    const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+    marker.style.left = `${pct}%`;
+    marker.setAttribute('aria-hidden', 'true');
+    bar.appendChild(marker);
+  }
+
+  wrap.appendChild(bar);
+
+  const scale = document.createElement('div');
+  scale.className = 'fl-inbody-scale-ticks';
+  let p2 = min;
+  bands.forEach((b) => {
+    const tick = document.createElement('span');
+    const width = ((b.max - p2) / (max - min)) * 100;
+    tick.style.flex = `${width.toFixed(2)} 1 0`;
+    tick.textContent = b.max;
+    scale.appendChild(tick);
+    p2 = b.max;
+  });
+  wrap.appendChild(scale);
+
+  return wrap;
+}
+
+function renderInBodyScales(day) {
+  if (!els.inbodyScales) return;
+  els.inbodyScales.innerHTML = '';
+  const p = profileState || {};
+  const w = day?.w ?? p.weight ?? null;
+  const wBands = inbodyWeightBands(p.height);
+  const mBands = inbodyMuscleBands(w, p.gender);
+  const fBands = inbodyFatBandsKg(w, p.gender);
+  const fatKg = (day?.bf != null && w != null) ? +(w * day.bf / 100).toFixed(1) : null;
+  const fatSub = day?.bf != null ? `${day.bf}%` : null;
+  els.inbodyScales.append(
+    renderInBodyScale('Weight', day?.w ?? null, 'kg', wBands),
+    renderInBodyScale('Muscle Mass', day?.mm ?? null, 'kg', mBands),
+    renderInBodyScale('Body Fat Mass', fatKg, 'kg', fBands, fatSub),
+  );
+}
+
+function renderBodyLast() {
+  if (!els.bodyLast) return;
+  const all = loadBody();
+  const isos = Object.keys(all).sort();
+  const latestIso = isos[isos.length - 1];
+  if (!latestIso) {
+    els.bodyLast.textContent = 'No body data recorded yet.';
+    return;
+  }
+  const e = all[latestIso];
+  const parts = [];
+  if (e.w != null) parts.push(`${e.w} kg`);
+  if (e.mm != null) parts.push(`${e.mm} kg muscle`);
+  if (e.bf != null) parts.push(`${e.bf}% fat`);
+  els.bodyLast.textContent = `Last recorded ${latestIso} · ${parts.join(' / ')}`;
+}
+
+function saveBodyFromUI() {
+  if (!els.bodyDate || !els.bodyDate.value) {
+    setSyncStatus('Pick a date before saving');
+    return;
+  }
+  const numOrNull = (el) => (el && el.value !== '' ? Number(el.value) : null);
+  setBodyDay(els.bodyDate.value, {
+    w: numOrNull(els.bodyWeight),
+    mm: numOrNull(els.bodyMuscle),
+    bf: numOrNull(els.bodyFat),
+  });
+  // Re-render so the scales reflect the just-saved values immediately.
+  loadBodyIntoUI();
+  setSyncStatus('Body Composition saved');
 }
 
 function saveProfileFromUI() {
@@ -4202,6 +4555,9 @@ function saveProfileFromUI() {
 // ============ Profile input events ============
 
 if (els.profileSaveMetrics) els.profileSaveMetrics.addEventListener('click', saveProfileFromUI);
+
+if (els.bodySave) els.bodySave.addEventListener('click', saveBodyFromUI);
+if (els.bodyDate) els.bodyDate.addEventListener('change', loadBodyIntoUI);
 
 // Custom row inputs → auto-derive carb
 [els.customKcal, els.customP, els.customF].forEach((el) => {
@@ -4241,10 +4597,16 @@ if (els.profileSaveCustom) {
 if (els.dailyTargetMode) {
   els.dailyTargetMode.addEventListener('change', () => {
     const date = selectedDate();
+    const mode = els.dailyTargetMode.value;
     const all = loadDaily();
     if (!all[date]) all[date] = blankDay();
-    all[date].targetMode = els.dailyTargetMode.value;
+    all[date].targetMode = mode;
     saveDaily(all);
+    // Remember as default for future days so target stays sticky.
+    if (profileState.defaultTargetMode !== mode) {
+      profileState.defaultTargetMode = mode;
+      saveProfile(profileState);
+    }
     renderDaily();
   });
 }
@@ -4262,16 +4624,22 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 els.welcomeSigninBtn.addEventListener('click', signInWithGoogle);
-if (els.brandLogo) els.brandLogo.addEventListener('click', showBrandMotto);
+if (els.brandLogo) els.brandLogo.addEventListener('click', () => showTab('about'));
+if (els.aboutLink) els.aboutLink.addEventListener('click', () => showTab('about'));
 els.libraryLinks.forEach((btn) => btn.addEventListener('click', (ev) => {
   ev.preventDefault();
   showTab('library');
 }));
 els.headerAccount.addEventListener('click', () => showTab('profile'));
 els.signoutBtn.addEventListener('click', signOut);
+if (els.updateBtn) els.updateBtn.addEventListener('click', () => {
+  window.location.replace(updateUrl());
+});
 
 // ============ Init ============
 
+checkForKoalaUpdate();
+showWhatsNewIfUpgraded();
 applyTheme(state.theme || DEFAULT_THEME, false);
 applyKoalaMode(state.koalaMode || DEFAULT_KOALA_MODE, false);
 loadSettingsIntoUI();

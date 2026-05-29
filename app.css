@@ -73,12 +73,28 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
 
 .fl-app-footer {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
   gap: 6px;
   font-size: 11px;
   color: var(--fl-muted);
   padding-top: 24px;
   padding-bottom: 16px;
+}
+.fl-footer-link {
+  border: 0;
+  background: transparent;
+  color: var(--fl-muted);
+  padding: 0;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.fl-footer-link:hover {
+  color: var(--fl-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .fl-app-header {
@@ -151,6 +167,157 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
 }
 .fl-icon-btn:hover { background: var(--fl-border); color: var(--fl-fg); }
 
+.fl-update-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 24% 16%, rgba(244, 184, 78, 0.22), transparent 18rem),
+    radial-gradient(circle at 78% 80%, rgba(159, 197, 238, 0.2), transparent 18rem),
+    rgba(8, 9, 11, 0.92);
+}
+.fl-update-card {
+  width: min(100%, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid rgba(244, 184, 78, 0.34);
+  border-radius: 8px;
+  background: var(--fl-panel);
+  box-shadow: 0 28px 76px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+.fl-update-card h2 {
+  margin: 0;
+  color: var(--fl-ink-soft);
+  font-size: 21px;
+  line-height: 1.2;
+}
+.fl-update-btn {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--fl-success);
+  color: #100d0a;
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.fl-update-btn:hover {
+  filter: brightness(1.06);
+}
+.fl-update-card small {
+  color: var(--fl-muted);
+  font-size: 11px;
+}
+body.fl-update-required {
+  overflow: hidden;
+}
+
+/* ---------- What's-new gate (one-shot per upgrade) ---------- */
+.fl-whatsnew-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 2950;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 24% 16%, rgba(244, 184, 78, 0.18), transparent 18rem),
+    radial-gradient(circle at 78% 80%, rgba(159, 197, 238, 0.18), transparent 18rem),
+    rgba(8, 9, 11, 0.92);
+  overflow-y: auto;
+}
+.fl-whatsnew-card {
+  width: min(100%, 460px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 28px 24px 22px;
+  border: 1px solid rgba(244, 184, 78, 0.30);
+  border-radius: 10px;
+  background: var(--fl-panel);
+  box-shadow: 0 28px 76px rgba(0, 0, 0, 0.45);
+}
+.fl-whatsnew-head { text-align: center; margin-bottom: 18px; }
+.fl-whatsnew-eyebrow {
+  color: var(--fl-warm);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  display: inline-block;
+  margin-bottom: 6px;
+}
+.fl-whatsnew-card h2 {
+  margin: 0;
+  color: var(--fl-ink-soft);
+  font-size: 22px;
+  line-height: 1.2;
+}
+.fl-whatsnew-card h2 span { color: var(--fl-warm); }
+.fl-whatsnew-sub {
+  margin: 8px 0 0;
+  color: var(--fl-muted);
+  font-size: 13px;
+}
+.fl-whatsnew-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fl-whatsnew-list li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--fl-border);
+  border-radius: 8px;
+  background: var(--fl-bg-subtle);
+}
+.fl-whatsnew-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+}
+.fl-whatsnew-list strong {
+  display: block;
+  color: var(--fl-ink-soft);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.fl-whatsnew-list p {
+  margin: 0;
+  color: var(--fl-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.fl-whatsnew-btn {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--fl-warm);
+  color: #100d0a;
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.fl-whatsnew-btn:hover { filter: brightness(1.06); }
+body.fl-whatsnew-open { overflow: hidden; }
+
 .fl-header-settings-btn {
   width: 32px;
   height: 32px;
@@ -215,7 +382,7 @@ main, .fl-app-header, .fl-tabs, .fl-app-footer {
   border: 0;
   padding: 12px 16px;
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   color: var(--fl-muted);
   border-bottom: 2px solid transparent;
@@ -2643,6 +2810,82 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* About Koala */
+.fl-about-letter {
+  width: min(100%, 680px);
+  align-self: center;
+  margin: 12px auto 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 30px 34px;
+  border: 1px solid color-mix(in srgb, var(--fl-border) 72%, var(--fl-warm));
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), transparent 44%),
+    #f8f0e3;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+  color: #2b2118;
+}
+.fl-about-letter-head {
+  text-align: center;
+}
+.fl-about-letter-head h2 {
+  margin: 0;
+  color: var(--fl-ink-soft);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 700;
+  text-transform: none;
+}
+.fl-about-letter-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--fl-fg);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.66;
+}
+.fl-about-letter-body p {
+  margin: 0;
+}
+.fl-about-letter-body strong {
+  color: var(--fl-warm);
+  font-weight: 700;
+}
+.fl-about-signoff {
+  padding-top: 8px;
+  color: var(--fl-ink-soft);
+  font-style: italic;
+}
+@media (max-width: 640px) {
+  .fl-about-letter {
+    padding: 24px 18px;
+  }
+  .fl-about-letter-head h2 {
+    font-size: 15px;
+  }
+  .fl-about-letter-body {
+    font-size: 13px;
+    line-height: 1.62;
+  }
+}
+body[data-theme="dark"] .fl-about-letter {
+  border-color: rgba(244, 184, 78, 0.32);
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.34);
+}
+body[data-theme="dark"] .fl-about-letter-head h2,
+body[data-theme="dark"] .fl-about-letter-body,
+body[data-theme="dark"] .fl-about-signoff {
+  color: #2b2118;
+}
+body[data-theme="dark"] .fl-about-letter-body strong {
+  color: #9b5c14;
+}
 .fl-modal-clear {
   background: transparent;
   color: var(--fl-muted);
@@ -2855,23 +3098,97 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   .fl-header-name { max-width: 200px; }
 }
 
-/* Sync status — top of Profile page */
+/* Profile header — title + sync status on the same line */
+.fl-profile-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+}
+.fl-profile-head h2 { margin: 0; }
 .fl-profile-sync {
   text-align: right;
   font-style: italic;
   font-size: 12px;
   color: var(--fl-muted);
-  margin: 4px 0 12px auto;
-  max-width: 100%;
+  margin: 0;
+}
+/* Merged Profile + Body Metrics — drop the top border + title since the
+ * fields now belong to the PROFILE header above. */
+.fl-profile-metrics-merged {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
 }
 
 /* Body Metrics / BMI·BMR·TDEE / Targets sections */
+.fl-profile-body,
 .fl-profile-metrics,
-.fl-profile-targets {
+.fl-profile-targets,
+.fl-profile-report {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--fl-border);
 }
+.fl-profile-report h2 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fl-muted);
+  margin: 0 0 10px;
+}
+.fl-report-month-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0 10px;
+  font-size: 13px;
+}
+.fl-profile-report select#fl-report-month {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 6px;
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+  flex: 1;
+  min-width: 0;
+  max-width: 220px;
+}
+/* Buttons sit on their own row, full-width on narrow viewports, side-by-side
+ * on wider ones — never drift to the right. */
+.fl-report-actions {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+.fl-report-actions .fl-log-btn {
+  flex: 0 0 auto;
+  min-width: 140px;
+  text-align: center;
+  margin-left: 0; /* override the default ".fl-log-btn { margin-left: auto }" */
+}
+/* Visual hierarchy: Email is the primary action (filled warm), Download is
+ * secondary (outline). Avoids the two-color clash. */
+.fl-report-actions #fl-report-download {
+  background: transparent;
+  border: 1px solid var(--fl-border);
+  color: var(--fl-fg);
+}
+.fl-report-email-btn {
+  background: var(--fl-warm);
+  color: var(--fl-accent-fg);
+}
+.fl-report-status {
+  font-size: 12px;
+  color: var(--fl-muted);
+  margin: 8px 0 0;
+  min-height: 16px;
+}
+.fl-profile-body h2,
 .fl-profile-metrics h2,
 .fl-profile-targets h2 {
   font-size: 13px;
@@ -2881,6 +3198,7 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   color: var(--fl-muted);
   margin: 0 0 10px;
 }
+.fl-profile-body label,
 .fl-profile-metrics label {
   display: flex;
   align-items: center;
@@ -2888,6 +3206,117 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   margin: 5px 0;
   font-size: 13px;
 }
+.fl-profile-body input[type="number"],
+.fl-profile-body input[type="date"] {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 6px;
+  background: var(--fl-bg);
+  color: var(--fl-fg);
+  width: 130px;
+}
+.fl-body-last {
+  font-size: 12px;
+  color: var(--fl-muted);
+  margin: 8px 0 0;
+}
+
+/* ---- InBody-style scales ---- */
+.fl-inbody-scales {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+.fl-inbody-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fl-inbody-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+}
+.fl-inbody-title {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fl-muted);
+  font-weight: 600;
+}
+.fl-inbody-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fl-fg);
+}
+.fl-inbody-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fl-muted);
+  margin-left: 4px;
+}
+.fl-inbody-bar {
+  position: relative;
+  display: flex;
+  height: 18px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--fl-bg-subtle);
+}
+.fl-inbody-seg {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--fl-border);
+  transition: background 0.2s ease;
+}
+.fl-inbody-seg:last-child { border-right: 0; }
+.fl-inbody-seg-active {
+  background: var(--fl-accent) !important;
+}
+.fl-inbody-seg-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--fl-muted);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.fl-inbody-seg-active .fl-inbody-seg-label {
+  color: var(--fl-accent-fg);
+}
+/* Monochrome bands: all inactive segments share the same muted fill; only the
+ * active band shows the accent tint. Tone classes preserved for semantic markup
+ * but no longer carry distinct colors. */
+.fl-inbody-tone-good,
+.fl-inbody-tone-warn,
+.fl-inbody-tone-bad,
+.fl-inbody-tone-accent {
+  background: var(--fl-bg-subtle);
+}
+.fl-inbody-marker {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--fl-fg);
+  transform: translateX(-50%);
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--fl-bg);
+}
+.fl-inbody-scale-ticks {
+  display: flex;
+  font-size: 10px;
+  color: var(--fl-muted);
+  font-variant-numeric: tabular-nums;
+  justify-content: space-between;
+  padding: 0 1px;
+}
+.fl-inbody-scale-ticks span { text-align: right; padding-right: 2px; }
+.fl-inbody-scale-ticks span:last-child { padding-right: 0; }
 .fl-metric-label {
   min-width: 88px;
   flex-shrink: 0;
@@ -2931,26 +3360,26 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   width: 56px;
   text-align: right;
 }
-.fl-targets-copy-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  margin-top: 8px;
-}
-.fl-targets-copy-row select {
-  font: inherit;
-  font-size: 12px;
-  padding: 3px 8px;
-  border: 1px solid var(--fl-border);
-  border-radius: 6px;
-  background: var(--fl-bg);
-}
-.fl-copy-from-label {
+/* Inline Custom Save — sits next to the "Custom" label in the targets table */
+.fl-targets-custom-label {
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
+.fl-save-custom-btn-inline {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--fl-accent);
+  color: var(--fl-accent-fg);
+  border: 0;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.fl-save-custom-btn-inline:hover { opacity: 0.9; }
 .fl-save-custom-btn {
   font-size: 13px;
   padding: 6px 14px;
