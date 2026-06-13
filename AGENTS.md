@@ -20,6 +20,7 @@ Every agent working in M003-1 FitLog must read this file before doing anything e
 ## Release Changelog
 
 - For every version pushed live, append an entry to `CHANGELOG.md` in this active dev folder.
+- Every live commit must increment the patch version `z` in `x.y.z` and include that version in the commit message. Keep `x.y` unchanged unless YY explicitly instructs a milestone version change.
 - Keep entries simple:
   - `version: <version>`
   - `agent: <push to live agent name>`

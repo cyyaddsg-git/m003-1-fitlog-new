@@ -6,6 +6,10 @@ version: <version>
 agent: <push to live agent name>
 change: <summary>
 
+version: v2.5.1
+agent: Codex
+change: Increase Custom Food save limit to 1000, update Gemini model fallback for FoodLog, and rework the UserLibrary Custom Food mobile list layout.
+
 version: gym-defaults-2026-05-29
 agent: Codex
 change: GymLog now adds one 12-rep set by default, uses updated starter kg values, and includes Regular Squat, Sumo Squat, Sumo Deadlift, Face Pull, and RDL aliases.

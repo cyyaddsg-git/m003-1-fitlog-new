@@ -1638,16 +1638,74 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   font-size: 12px;
   white-space: nowrap;
 }
+.fl-library-food-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+  border-top: 1px solid var(--fl-border);
+}
+.fl-library-food-row {
+  display: grid;
+  grid-template-columns: minmax(0, 50%) minmax(64px, 1fr) 34px;
+  gap: 4px 8px;
+  align-items: center;
+  min-height: 58px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--fl-border);
+}
+.fl-library-food-row .fl-row-del-btn {
+  justify-self: end;
+}
+.fl-library-food-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fl-library-food-serving {
+  min-width: 0;
+}
+.fl-library-nutrition-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  color: var(--fl-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.fl-library-nutrition-field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+}
+.fl-library-nutrition-field:not(:last-child)::after {
+  content: '|';
+  margin: 0 5px;
+  color: var(--fl-border-strong);
+}
 .fl-library-edit-input {
   width: 100%;
-  min-width: 68px;
-  border: 1px solid var(--fl-border);
-  border-radius: 6px;
-  background: var(--fl-bg-subtle);
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--fl-border);
+  border-radius: 0;
+  background: transparent;
   color: var(--fl-fg);
   font: inherit;
   font-size: 12px;
-  padding: 5px 7px;
+  padding: 4px 1px;
+}
+.fl-library-edit-input:focus {
+  outline: 0;
+  border-bottom-color: var(--fl-accent);
+}
+.fl-library-nutrition-input {
+  width: 7ch;
+  min-width: 54px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .fl-num .fl-library-edit-input {
   text-align: right;

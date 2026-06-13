@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fitlog-Koala</title>
-<link rel="stylesheet" href="./app.css?v=2.5.0" />
+<link rel="stylesheet" href="./app.css?v=2.5.1" />
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
@@ -25,7 +25,7 @@
   <div class="fl-whatsnew-card">
     <header class="fl-whatsnew-head">
       <small class="fl-whatsnew-eyebrow">UPDATED</small>
-      <h2 id="fl-whatsnew-title">What's new in <span id="fl-whatsnew-version">v2.5.0</span></h2>
+      <h2 id="fl-whatsnew-title">What's new in <span id="fl-whatsnew-version">v2.5.1</span></h2>
       <p class="fl-whatsnew-sub">Body composition tracking + your first monthly health report.</p>
     </header>
     <ul class="fl-whatsnew-list">
@@ -168,10 +168,8 @@
     </div>
   </div>
   <details class="fl-library-section" id="fl-library-food-section">
-    <summary>Custom Food <span id="fl-library-food-count">0/30</span></summary>
-    <div class="fl-table-wrap">
-      <table class="fl-table" id="fl-library-table"></table>
-    </div>
+    <summary>Custom Food <span id="fl-library-food-count">0/1000</span></summary>
+    <div class="fl-library-food-list" id="fl-library-table"></div>
     <p class="fl-empty" id="fl-library-empty" hidden>No custom food yet — add items from FoodLog preview rows.</p>
   </details>
   <details class="fl-library-section" id="fl-library-exercise-section">
@@ -391,9 +389,10 @@
     <h3>Gemini</h3>
     <label>Model
       <select id="fl-set-model">
+        <option value="gemini-3.5-flash">gemini-3.5-flash</option>
         <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
         <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-        <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+        <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
       </select>
     </label>
     <label>Gemini API key (BYOK)
@@ -416,13 +415,13 @@
 
 <footer class="fl-app-footer">
   <span>Powered by</span>
-  <button type="button" class="fl-footer-link" id="fl-about-link">Koala v2.5.0</button>
+  <button type="button" class="fl-footer-link" id="fl-about-link">Koala v2.5.1</button>
   <span aria-hidden="true">|</span>
-  <a class="fl-footer-link" href="mailto:genalphai.production@gmail.com?subject=Fitlog%20Koala%20feedback%20v2.5.0&body=Dear%20Koala%2C%0A">Feedback to K.</a>
+  <a class="fl-footer-link" href="mailto:genalphai.production@gmail.com?subject=Fitlog%20Koala%20feedback%20v2.5.1&body=Dear%20Koala%2C%0A">Feedback to K.</a>
 </footer>
 
-<script src="./lib/generated_libraries.js?v=2.5.0"></script>
-<script src="./app.js?v=2.5.0"></script>
-<script src="./report.js?v=2.5.0"></script>
+<script src="./lib/generated_libraries.js?v=2.5.1"></script>
+<script src="./app.js?v=2.5.1"></script>
+<script src="./report.js?v=2.5.1"></script>
 </body>
 </html>

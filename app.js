@@ -7,7 +7,7 @@
 // ============ Constants ============
 
 const STORAGE_PREFIX = 'm003_1';
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.5.1';
 const KEY_LAST_SEEN_VERSION = `${'m003_1'}_lastSeenVersion`;
 const KEY_APIKEY = `${STORAGE_PREFIX}_apiKey`;
 const KEY_MODEL = `${STORAGE_PREFIX}_model`;
@@ -25,8 +25,8 @@ const KEY_GYM_CUSTOMS = `${STORAGE_PREFIX}_gymCustomExercises`;
 const KEY_PROFILE = `${STORAGE_PREFIX}_profile`;
 const KEY_BODY = `${STORAGE_PREFIX}_bodyLog`;
 
-const SUPPORTED_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
-const DEFAULT_MODEL = 'gemini-3-flash-preview';
+const SUPPORTED_MODELS = ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+const DEFAULT_MODEL = 'gemini-3.5-flash';
 const DEFAULT_KOALA_MODE = 'j';
 const DEFAULT_THEME = 'dark';
 const ICON_LEAF = '🌿';
@@ -37,17 +37,15 @@ const ICON_DARK_BULB = '●';
 const ICON_FIRE = '🔥';
 
 // Fallback preference order. When the selected primary model 5xx's, try these
-// in order (skipping the primary). gemini-3-flash-preview is preferred because
-// it lives on a separate capacity pool from 2.5-flash and is on free tier.
-// gemini-2.0-flash is last because some accounts have free_tier limit=0 on it.
-const FALLBACK_PRIORITY = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+// in order (skipping the primary). Keep shut-down models out of this list.
+const FALLBACK_PRIORITY = ['gemini-3.5-flash', 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 
 const GEMINI_PROXY_URL = '/api/gemini';
 
 const COLS = ['item', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
 
-// Authoritative schema sent to Gemini via generationConfig.responseSchema.
-// Forces structured output — without this, gemini-3-flash-preview will
+// Authoritative schema sent to Gemini via generationConfig.responseFormat.
+// Forces structured output — without this, Gemini can
 // invent its own field names (e.g. {meal, calories, protein_g, ...}).
 const FOOD_RESPONSE_SCHEMA = {
   type: 'object',
@@ -92,7 +90,7 @@ const MEAL_HINTS = [
 const DAILY_DATE_WINDOW_DAYS = 30;
 const CUSTOM_WEIGHT_LABEL = 'Custom weight training';
 const CUSTOM_CARDIO_LABEL = 'Custom cardio';
-const MAX_LIBRARY_ITEMS = 30;
+const MAX_LIBRARY_ITEMS = 1000;
 const MAX_GYM_CUSTOMS = 10;
 const GYM_ACTIVITY_DATALIST_ID = 'fl-gym-activity-options';
 const FALLBACK_GYM_ACTIVITIES = [
@@ -658,8 +656,12 @@ function geminiRequestBody({ systemPrompt, input, images = [] }) {
   const body = {
     contents: [{ role: 'user', parts }],
     generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: FOOD_RESPONSE_SCHEMA,
+      responseFormat: {
+        text: {
+          mimeType: 'APPLICATION_JSON',
+          schema: FOOD_RESPONSE_SCHEMA,
+        },
+      },
     },
   };
   if (systemPrompt && systemPrompt.trim()) {
@@ -713,7 +715,7 @@ async function callGemini({ model, systemPrompt, input, images = [] }) {
 }
 
 // Tolerant JSON parser — strips markdown fences and trims to outermost {...}.
-// gemini-2.5-flash sometimes wraps output in ```json ... ``` despite responseMimeType.
+// Gemini can sometimes wrap output in ```json ... ``` despite structured-output config.
 function tryParseJSON(raw) {
   if (!raw) return null;
   let text = String(raw).trim();
@@ -743,6 +745,7 @@ function formatError(e) {
     // Google's error message is the only way to tell them apart.
     return tag('HTTP 429 (quota / rate limit)');
   }
+  if (s === 501) return tag('HTTP 501 (model/request not implemented)');
   if (s === 503) return tag('HTTP 503 (Gemini capacity)');
   if (s >= 500) return tag(`HTTP ${s} (server error)`);
   if (e.finishReason) return `Stopped: ${e.finishReason} — try shorter input or different prompt.`;
@@ -750,6 +753,17 @@ function formatError(e) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function shouldRetrySameModel(e) {
+  if (!e.status) return true;
+  return [500, 502, 503, 504].includes(e.status);
+}
+
+function shouldTryNextModel(e) {
+  if (!e.status) return true;
+  if (e.status === 429) return true;
+  return e.status >= 500 && e.status <= 504;
+}
 
 async function callGeminiWithRetry(opts) {
   const DELAYS = [0, 1000, 3000];
@@ -762,8 +776,7 @@ async function callGeminiWithRetry(opts) {
     try { return await callGemini(opts); }
     catch (e) {
       lastErr = e;
-      const transient = !e.status || (e.status >= 500 && e.status <= 504);
-      if (!transient) throw e;
+      if (!shouldRetrySameModel(e)) throw e;
       if (e.finishReason) throw e;
     }
   }
@@ -1588,7 +1601,7 @@ async function send() {
     for (let i = 0; i < chain.length; i++) {
       const model = chain[i];
       triedModels.push(model);
-      if (i > 0) setStatus(`${chain[0]} overloaded — falling back to ${model}…`, 'info');
+      if (i > 0) setStatus(`${chain[0]} failed — falling back to ${model}…`, 'info');
       try {
         const opts = { model, systemPrompt: promptWithContext, input: requestText, images };
         const result = images.length ? await callGemini(opts) : await callGeminiWithRetry(opts);
@@ -1608,8 +1621,7 @@ async function send() {
       } catch (e) {
         lastErr = e;
         // Only fall back on transient 5xx; bail on auth / quota / format errors.
-        const transient = !e.status || (e.status >= 500 && e.status <= 504);
-        if (!transient || e.finishReason) throw e;
+        if (!shouldTryNextModel(e) || e.finishReason) throw e;
       }
     }
     throw lastErr;
@@ -1870,10 +1882,10 @@ function addRowToLibrary(row, btn) {
   const userCount = lib.filter((entry) => !isHostLibraryEntry(entry)).length;
   if (userCount >= MAX_LIBRARY_ITEMS) {
     if (btn) {
-      btn.textContent = 'Max 30 items';
+      btn.textContent = `Max ${MAX_LIBRARY_ITEMS} items`;
       btn.disabled = true;
     }
-    alert('Custom Food is limited to 30 items. Delete one in UserLibrary before adding another.');
+    alert(`Custom Food is limited to ${MAX_LIBRARY_ITEMS} items. Delete one in UserLibrary before adding another.`);
     return;
   }
 
@@ -3703,7 +3715,8 @@ window.addEventListener('beforeunload', (ev) => {
 
 // ============ Saved food data panel (hidden from navigation) ============
 
-const LIB_COLS = ['item', 'serving', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
+const LIB_NUTRIENT_COLS = ['kcal', 'p', 'f', 'c', 'su', 'fb'];
+const LIB_NUTRIENT_LABELS = { kcal: 'kcal', p: 'P', f: 'F', c: 'C', su: 'Su', fb: 'Fb' };
 
 function isHostLibraryEntry(entry) {
   return String(entry?.id ?? '').startsWith('seed-') || entry?.addedAt === DEFAULT_LIBRARY_VERSION;
@@ -3717,10 +3730,9 @@ function renderLibrary() {
   if (els.libraryFoodCount) els.libraryFoodCount.textContent = `${lib.length}/${MAX_LIBRARY_ITEMS}`;
   if (els.gymCustomCount) els.gymCustomCount.textContent = `${customs.length}/${MAX_GYM_CUSTOMS}`;
   if (els.gymFavCount) els.gymFavCount.textContent = `${favs.length}/5`;
-  document.querySelectorAll('.fl-library-section').forEach((section) => { section.open = false; });
 
-  const tbl = els.libraryTable;
-  tbl.innerHTML = '';
+  const list = els.libraryTable;
+  list.innerHTML = '';
 
   if (!lib.length) {
     els.libraryEmpty.hidden = false;
@@ -3730,58 +3742,38 @@ function renderLibrary() {
   }
   els.libraryEmpty.hidden = true;
 
-  const thead = document.createElement('thead');
-  const trh = document.createElement('tr');
-  LIB_COLS.forEach((c) => {
-    const th = document.createElement('th');
-    th.textContent = c;
-    if (['kcal','p','f','c','su','fb'].includes(c)) th.classList.add('fl-num');
-    trh.appendChild(th);
-  });
-  const thDel = document.createElement('th');
-  trh.appendChild(thDel);
-  thead.appendChild(trh);
-  tbl.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
   lib.forEach((entry) => {
     const hostEntry = isHostLibraryEntry(entry);
-    const tr = document.createElement('tr');
-    LIB_COLS.forEach((c) => {
-      const td = document.createElement('td');
-      const v = entry[c];
-      if (!hostEntry) {
-        const input = document.createElement('input');
-        input.className = 'fl-library-edit-input';
-        input.value = String(v ?? '');
-        if (!['item', 'serving'].includes(c)) {
-          input.type = 'number';
-          input.inputMode = 'decimal';
-          input.min = '0';
-          input.step = c === 'kcal' ? '1' : '0.1';
-          td.classList.add('fl-num');
-        }
-        input.addEventListener('change', () => {
-          const next = loadLibrary().map((x) => {
-            if (x.id !== entry.id) return x;
-            const raw = input.value.trim();
-            const value = ['item', 'serving'].includes(c) ? raw : num(raw);
-            return { ...x, [c]: value };
-          });
-          saveLibrary(next);
-          renderLibrary();
-        });
-        td.appendChild(input);
-      } else if (c === 'item' || c === 'serving') {
-        td.textContent = String(v ?? '');
-      } else {
-        td.classList.add('fl-num');
-        td.textContent = c === 'kcal' ? fmtNum(v, 0) : fmtNum(v, 1);
+    const row = document.createElement('div');
+    row.className = 'fl-library-food-row';
+
+    const makeInput = (field, className) => {
+      const input = document.createElement('input');
+      input.className = className;
+      input.value = String(entry[field] ?? '');
+      if (!['item', 'serving'].includes(field)) {
+        input.type = 'number';
+        input.inputMode = 'decimal';
+        input.min = '0';
+        input.step = field === 'kcal' ? '1' : '0.1';
       }
-      tr.appendChild(td);
-    });
-    const tdDel = document.createElement('td');
+      input.addEventListener('change', () => {
+        const next = loadLibrary().map((x) => {
+          if (x.id !== entry.id) return x;
+          const raw = input.value.trim();
+          const value = ['item', 'serving'].includes(field) ? raw : num(raw);
+          return { ...x, [field]: value };
+        });
+        saveLibrary(next);
+        renderLibrary();
+      });
+      return input;
+    };
+
     if (!hostEntry) {
+      row.appendChild(makeInput('item', 'fl-library-edit-input fl-library-food-name'));
+      row.appendChild(makeInput('serving', 'fl-library-edit-input fl-library-food-serving'));
+
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'fl-row-del-btn';
@@ -3792,12 +3784,37 @@ function renderLibrary() {
         saveLibrary(cur);
         renderLibrary();
       });
-      tdDel.appendChild(del);
+      row.appendChild(del);
+
+      const nutrients = document.createElement('div');
+      nutrients.className = 'fl-library-nutrition-strip';
+      LIB_NUTRIENT_COLS.forEach((field) => {
+        const group = document.createElement('label');
+        group.className = 'fl-library-nutrition-field';
+        group.appendChild(makeInput(field, 'fl-library-edit-input fl-library-nutrition-input'));
+        const unit = document.createElement('span');
+        unit.textContent = LIB_NUTRIENT_LABELS[field];
+        group.appendChild(unit);
+        nutrients.appendChild(group);
+      });
+      row.appendChild(nutrients);
+    } else {
+      const name = document.createElement('strong');
+      name.className = 'fl-library-food-name';
+      name.textContent = String(entry.item ?? '');
+      const serving = document.createElement('span');
+      serving.className = 'fl-library-food-serving';
+      serving.textContent = String(entry.serving ?? '');
+      const nutrients = document.createElement('span');
+      nutrients.className = 'fl-library-nutrition-strip';
+      nutrients.textContent = LIB_NUTRIENT_COLS.map((field) => {
+        const value = field === 'kcal' ? fmtNum(entry[field], 0) : fmtNum(entry[field], 1);
+        return `${value} ${LIB_NUTRIENT_LABELS[field]}`;
+      }).join(' | ');
+      row.append(name, serving, document.createElement('span'), nutrients);
     }
-    tr.appendChild(tdDel);
-    tbody.appendChild(tr);
+    list.appendChild(row);
   });
-  tbl.appendChild(tbody);
   renderGymCustomLibrary();
   renderGymFavLibrary();
 }
