@@ -521,6 +521,31 @@ body.fl-whatsnew-open { overflow: hidden; }
   line-height: 1;
   vertical-align: baseline;
 }
+.fl-kcal-triplet {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 10px 0 2px;
+}
+.fl-kcal-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fl-kcal-stat-label {
+  color: #d8d0c1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.fl-kcal-stat strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--fl-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
 .fl-kcal-bar {
   height: 14px;
   margin-top: 14px;
@@ -730,9 +755,20 @@ body.fl-whatsnew-open { overflow: hidden; }
 .fl-chat-composer {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
+}
+.fl-log-mode-select {
+  min-height: 44px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: rgba(17, 20, 24, 0.9);
+  color: var(--fl-fg);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 4px 8px;
 }
 .fl-composer-input {
   position: relative;

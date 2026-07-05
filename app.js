@@ -18,6 +18,7 @@ const KEY_THEME = `${STORAGE_PREFIX}_theme`;
 const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_LIBRARY_SEED = `${STORAGE_PREFIX}_librarySeedVersion`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
+const KEY_MOVE = `${STORAGE_PREFIX}_moveLog`;
 const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
 const KEY_GYM = `${STORAGE_PREFIX}_gymLog`;
 const KEY_GYM_FAVS = `${STORAGE_PREFIX}_gymFavorites`;
@@ -491,6 +492,24 @@ function loadGym() { return safeLS.getJSON(KEY_GYM, {}); }
 function saveGym(g) {
   safeLS.setJSON(KEY_GYM, g);
   syncToFirestore('gymLog', g);
+}
+function loadMove() { return safeLS.getJSON(KEY_MOVE, {}); }
+function saveMove(m) {
+  safeLS.setJSON(KEY_MOVE, m);
+  syncToFirestore('moveLog', m);
+}
+function blankMoveDay() { return { entries: [] }; }
+function getMoveDay(all, date) { return all[date] || blankMoveDay(); }
+function moveDayTotal(day) {
+  return (Array.isArray(day?.entries) ? day.entries : []).reduce((sum, e) => sum + num(e.kcal), 0);
+}
+function logMoveEntry(date, kcal, note = '') {
+  const all = loadMove();
+  const day = getMoveDay(all, date);
+  const entries = Array.isArray(day.entries) ? day.entries.slice() : [];
+  entries.push({ id: uid(), kcal: -Math.abs(num(kcal)), note, loggedAt: new Date().toISOString() });
+  all[date] = { entries };
+  saveMove(all);
 }
 function loadGymFavs() { return safeLS.getJSON(KEY_GYM_FAVS, []); }
 function saveGymFavs(favs) {
@@ -990,6 +1009,7 @@ const els = {
   panels: Array.from(document.querySelectorAll('.fl-panel')),
   input: $('#fl-input'),
   sendBtn: $('#fl-send-btn'),
+  logModeSelect: $('#fl-log-mode-select'),
   modeButtons: Array.from(document.querySelectorAll('.fl-mode-btn')),
   imageInputs: [$('#fl-image-0')],
   imageDrops: Array.from(document.querySelectorAll('.fl-image-drop')),
@@ -1569,6 +1589,24 @@ els.imageInputs.forEach((input, idx) => {
 
 // ============ Send + preview ============
 
+function logMove() {
+  showValidation(null);
+  setStatus(null);
+  const raw = els.input.value.trim();
+  const n = num(raw);
+  if (!raw || !n || n <= 0) { showValidation('Enter a positive kcal number.'); return; }
+  const date = selectedDate();
+  logMoveEntry(date, n);
+  els.input.value = '';
+  setStatus(`${fmtNum(n, 0)} active kcal is logged.`, 'info');
+  renderDaily();
+}
+
+function submitLog() {
+  if (els.logModeSelect && els.logModeSelect.value === 'move') { logMove(); return; }
+  send();
+}
+
 async function send() {
   showValidation(null);
   setStatus(null);
@@ -1793,10 +1831,19 @@ function renderPreview(parsed, sourceInput = '') {
   els.preview.hidden = false;
 }
 
-els.sendBtn.addEventListener('click', send);
+els.sendBtn.addEventListener('click', submitLog);
 els.input.addEventListener('keydown', (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); send(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submitLog(); }
 });
+if (els.logModeSelect) {
+  els.logModeSelect.addEventListener('change', () => {
+    showValidation(null);
+    setStatus(null);
+    const isMove = els.logModeSelect.value === 'move';
+    els.input.placeholder = isMove ? 'Active kcal, e.g. 300' : 'Add Meal';
+    els.imageDrops.forEach((drop) => { drop.hidden = isMove; });
+  });
+}
 els.modeButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
     applyKoalaMode(btn.dataset.mode === 'p' ? 'p' : 'j', true);
@@ -2151,10 +2198,10 @@ function targetModeShort(mode) {
   return { normal: 'N', high: 'H', diet: 'D', custom: 'C', none: '-' }[mode] || 'N';
 }
 
-function renderNutritionBoard(total, target) {
+function renderNutritionBoard(mealTotal, moveKcal, target) {
   if (!els.nutritionBoard) return;
-  const remain = target ? target.kcal - total.kcal : null;
-  const progress = dailyProgress(total, target);
+  const net = mealTotal.kcal + moveKcal;
+  const progress = dailyProgress({ kcal: net }, target);
   els.nutritionBoard.innerHTML = '';
 
   const hero = document.createElement('article');
@@ -2169,22 +2216,35 @@ function renderNutritionBoard(total, target) {
     targetPicker.appendChild(display);
     hero.appendChild(targetPicker);
   }
-  const value = document.createElement('strong');
-  value.appendChild(document.createTextNode(target ? `${fmtNum(total.kcal, 0)} / ${fmtNum(target.kcal, 0)}` : fmtNum(total.kcal, 0)));
-  const unit = document.createElement('span');
-  unit.className = 'fl-kcal-unit';
-  unit.textContent = 'KCAL';
-  value.appendChild(unit);
+
+  const triplet = document.createElement('div');
+  triplet.className = 'fl-kcal-triplet';
+  [
+    ['Meal', fmtNum(mealTotal.kcal, 0)],
+    ['Move', moveKcal ? `-${fmtNum(Math.abs(moveKcal), 0)}` : '0'],
+    ['Goal', target ? fmtNum(target.kcal, 0) : '—'],
+  ].forEach(([label, val]) => {
+    const stat = document.createElement('div');
+    stat.className = 'fl-kcal-stat';
+    const lbl = document.createElement('span');
+    lbl.className = 'fl-kcal-stat-label';
+    lbl.textContent = label;
+    const strong = document.createElement('strong');
+    strong.textContent = val;
+    stat.append(lbl, strong);
+    triplet.appendChild(stat);
+  });
+
   const remainEl = document.createElement('span');
   remainEl.className = 'fl-kcal-remain';
   remainEl.textContent = target
-    ? (remain >= 0 ? `${fmtNum(remain, 0)} left` : `${fmtNum(Math.abs(remain), 0)} over`)
+    ? (target.kcal - net >= 0 ? `${fmtNum(target.kcal - net, 0)} left` : `${fmtNum(Math.abs(target.kcal - net), 0)} over`)
     : 'Set a target to track remain';
   const bar = document.createElement('div');
   bar.className = 'fl-kcal-bar';
   const fill = document.createElement('span');
   fill.style.width = `${progress}%`;
-  fill.className = target && total.kcal > target.kcal ? 'fl-over' : '';
+  fill.className = target && net > target.kcal ? 'fl-over' : '';
   bar.appendChild(fill);
 
   const macros = document.createElement('div');
@@ -2196,10 +2256,10 @@ function renderNutritionBoard(total, target) {
     ['Sugar', 'su'],
     ['Fiber', 'fb'],
   ].forEach(([label, key]) => {
-    macros.appendChild(renderMetricChip(label, key, total, target));
+    macros.appendChild(renderMetricChip(label, key, mealTotal, target));
   });
 
-  hero.append(value, remainEl, bar, macros);
+  hero.append(triplet, remainEl, bar, macros);
   els.nutritionBoard.append(hero);
 }
 
@@ -2317,7 +2377,8 @@ function renderDaily() {
   });
 
   const target = targetForDate(date);
-  renderNutritionBoard(dayTotal, target);
+  const moveKcal = moveDayTotal(getMoveDay(loadMove(), date));
+  renderNutritionBoard(dayTotal, moveKcal, target);
 
   const stack = els.dailyTable;
   stack.innerHTML = '';
@@ -4177,6 +4238,7 @@ async function syncAllToFirestore() {
   await syncToFirestore('settings', settingsCloudPayload(loadSettings()));
   await syncToFirestore('library', loadLibrary());
   await syncToFirestore('dailyLog', loadDaily());
+  await syncToFirestore('moveLog', loadMove());
   await syncToFirestore('foodHistory', loadHistory());
   await syncToFirestore('gymLog', loadGym());
   await syncToFirestore('gymFavorites', loadGymFavs());
@@ -4222,6 +4284,11 @@ async function syncFromFirestore() {
         hasChanges = true;
       } else if (category === 'foodHistory') {
         saveHistory(data);
+        hasChanges = true;
+      } else if (category === 'moveLog') {
+        const local = loadMove();
+        const merged = { ...local, ...data };
+        saveMove(merged);
         hasChanges = true;
       } else if (category === 'gymLog') {
         const local = loadGym();
