@@ -7,7 +7,7 @@
 // ============ Constants ============
 
 const STORAGE_PREFIX = 'm003_1';
-const APP_VERSION = '2.5.1';
+const APP_VERSION = '3.0.0';
 const KEY_LAST_SEEN_VERSION = `${'m003_1'}_lastSeenVersion`;
 const KEY_APIKEY = `${STORAGE_PREFIX}_apiKey`;
 const KEY_MODEL = `${STORAGE_PREFIX}_model`;

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fitlog-Koala</title>
-<link rel="stylesheet" href="./app.css?v=2.5.1" />
+<link rel="stylesheet" href="./app.css?v=3.0.0" />
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
@@ -25,36 +25,43 @@
   <div class="fl-whatsnew-card">
     <header class="fl-whatsnew-head">
       <small class="fl-whatsnew-eyebrow">UPDATED</small>
-      <h2 id="fl-whatsnew-title">What's new in <span id="fl-whatsnew-version">v2.5.1</span></h2>
-      <p class="fl-whatsnew-sub">Body composition tracking + your first monthly health report.</p>
+      <h2 id="fl-whatsnew-title">What's new in <span id="fl-whatsnew-version">v3.0.0</span></h2>
+      <p class="fl-whatsnew-sub">FoodLog/GymLog/Momentum are now Today/Planner/History.</p>
     </header>
     <ul class="fl-whatsnew-list">
       <li>
-        <span class="fl-whatsnew-icon" aria-hidden="true">🧬</span>
+        <span class="fl-whatsnew-icon" aria-hidden="true">🌿</span>
         <div>
-          <strong>Body Composition Track</strong>
-          <p>Log your weight, muscle mass and body-fat reading from any scale, every day. The latest weight automatically updates your TDEE targets.</p>
+          <strong>Today: Meal + Move logging</strong>
+          <p>Switch the composer between Meal (AI food estimate, as before) and Move — a quick manual exercise-kcal entry with no AI call. The heading now shows Meal / Move / Goal side by side.</p>
         </div>
       </li>
       <li>
-        <span class="fl-whatsnew-icon" aria-hidden="true">📊</span>
+        <span class="fl-whatsnew-icon" aria-hidden="true">💬</span>
         <div>
-          <strong>InBody-style scales</strong>
-          <p>See where your weight, muscle mass and body-fat mass sit against clinical zones — Under / Normal / Over / Obese, Athlete / Fit / Average / High — calibrated to your height and gender.</p>
+          <strong>Keep chatting after a meal estimate</strong>
+          <p>After a Meal result, keep typing to refine it — "adjust portion to 250g" re-estimates in place, "explain why the fat is 8g" gets a written answer, without repeating the whole description.</p>
         </div>
       </li>
       <li>
-        <span class="fl-whatsnew-icon" aria-hidden="true">📄</span>
+        <span class="fl-whatsnew-icon" aria-hidden="true">📅</span>
         <div>
-          <strong>Monthly Health Report</strong>
-          <p>Download a clinician-style PDF, or have it emailed straight to your inbox. Covers body composition trends, nutrition adherence, movement volume — all derived from your own logs.</p>
+          <strong>History: full list view</strong>
+          <p>Every logged day is now listed, grouped by month, with Goal/Net/Move/Meal kcal and macros per row — not just the current calendar month.</p>
         </div>
       </li>
       <li>
-        <span class="fl-whatsnew-icon" aria-hidden="true">🎯</span>
+        <span class="fl-whatsnew-icon" aria-hidden="true">🏋️</span>
         <div>
-          <strong>Sticky TDEE target</strong>
-          <p>Your last-used target mode (Normal / Diet / High / Custom) carries forward to every new day instead of resetting.</p>
+          <strong>Planner: Gym Plan + Diet Plan</strong>
+          <p>The exercise log is now a pure planning tool under Planner and no longer affects your kcal totals. Diet Plan is a placeholder for Gemini-designed macro/carb-cycling plans, coming later.</p>
+        </div>
+      </li>
+      <li>
+        <span class="fl-whatsnew-icon" aria-hidden="true">📱</span>
+        <div>
+          <strong>Fixed mobile zoom-in on tap</strong>
+          <p>Tapping any field used to zoom the page in and required zooming back out. Every input now stays put.</p>
         </div>
       </li>
     </ul>
@@ -442,13 +449,13 @@
 
 <footer class="fl-app-footer">
   <span>Powered by</span>
-  <button type="button" class="fl-footer-link" id="fl-about-link">Koala v2.5.1</button>
+  <button type="button" class="fl-footer-link" id="fl-about-link">Koala v3.0.0</button>
   <span aria-hidden="true">|</span>
-  <a class="fl-footer-link" href="mailto:genalphai.production@gmail.com?subject=Fitlog%20Koala%20feedback%20v2.5.1&body=Dear%20Koala%2C%0A">Feedback to K.</a>
+  <a class="fl-footer-link" href="mailto:genalphai.production@gmail.com?subject=Fitlog%20Koala%20feedback%20v3.0.0&body=Dear%20Koala%2C%0A">Feedback to K.</a>
 </footer>
 
-<script src="./lib/generated_libraries.js?v=2.5.1"></script>
-<script src="./app.js?v=2.5.1"></script>
-<script src="./report.js?v=2.5.1"></script>
+<script src="./lib/generated_libraries.js?v=3.0.0"></script>
+<script src="./app.js?v=3.0.0"></script>
+<script src="./report.js?v=3.0.0"></script>
 </body>
 </html>
