@@ -1404,6 +1404,17 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
   color: var(--fl-muted);
 }
 
+.fl-followup-output {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px dashed var(--fl-border);
+  border-radius: var(--fl-radius);
+  color: var(--fl-fg);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 .fl-log-row {
   display: flex;
   flex-wrap: wrap;

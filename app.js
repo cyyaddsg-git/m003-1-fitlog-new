@@ -73,6 +73,19 @@ const FOOD_RESPONSE_SCHEMA = {
   },
   required: ['rows'],
 };
+// Used for conversational follow-ups on an already-estimated meal (adjust portion / explain / new meal).
+// Single schema handles both a re-estimate (rows) and a prose answer (explanation) in one call.
+const FOOD_FOLLOWUP_SCHEMA = {
+  type: 'object',
+  properties: {
+    responseType: { type: 'string', enum: ['rows', 'explanation'] },
+    rows: FOOD_RESPONSE_SCHEMA.properties.rows,
+    notes: FOOD_RESPONSE_SCHEMA.properties.notes,
+    explanation: { type: 'string' },
+    contextReset: { type: 'boolean' },
+  },
+  required: ['responseType'],
+};
 const NUMERIC_COLS = ['kcal', 'p', 'f', 'c', 'su', 'fb'];
 const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
@@ -658,19 +671,23 @@ function geminiEndpoint(model, apiKey) {
   return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 }
 
-function geminiRequestBody({ systemPrompt, input, images = [] }) {
-  const parts = [{ text: input }];
-  images.forEach((img) => {
-    if (!img || !img.mimeType || !img.data) return;
-    parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
-  });
+function geminiRequestBody({ systemPrompt, input, images = [], contents, schema }) {
+  let requestContents = contents;
+  if (!requestContents) {
+    const parts = [{ text: input }];
+    images.forEach((img) => {
+      if (!img || !img.mimeType || !img.data) return;
+      parts.push({ inline_data: { mime_type: img.mimeType, data: img.data } });
+    });
+    requestContents = [{ role: 'user', parts }];
+  }
   const body = {
-    contents: [{ role: 'user', parts }],
+    contents: requestContents,
     generationConfig: {
       responseFormat: {
         text: {
           mimeType: 'APPLICATION_JSON',
-          schema: FOOD_RESPONSE_SCHEMA,
+          schema: schema || FOOD_RESPONSE_SCHEMA,
         },
       },
     },
@@ -681,14 +698,14 @@ function geminiRequestBody({ systemPrompt, input, images = [] }) {
   return body;
 }
 
-async function callGemini({ model, systemPrompt, input, images = [] }) {
+async function callGemini({ model, systemPrompt, input, images = [], contents, schema }) {
   if (!currentUser) {
     const e = new Error('Sign in required.');
     e.status = 401;
     throw e;
   }
   const apiKey = String(state.apiKey || '').trim();
-  const body = geminiRequestBody({ systemPrompt, input, images });
+  const body = geminiRequestBody({ systemPrompt, input, images, contents, schema });
   const res = apiKey
     ? await fetch(geminiEndpoint(model, apiKey), {
         method: 'POST',
@@ -954,6 +971,9 @@ function targetForDate(date) {
 let state = loadSettings();
 let profileState = loadProfile();
 let lastPreview = null; // { rows: [...], notes: [...] }
+let mealConvo = null; // { originalInput, images, rows, notes, turnCount, startedAt, committed } — in-memory only, not persisted
+const MEAL_CONVO_MAX_TURNS = 8;
+const MEAL_CONVO_MAX_AGE_MS = 10 * 60 * 1000;
 let selectedDailyDate = todayISO();
 let selectedGymDate = todayISO();
 let foodImages = [null, null]; // ephemeral compressed images for the next AI estimate only
@@ -1011,6 +1031,7 @@ const els = {
   preview: $('#fl-preview'),
   previewTable: $('#fl-preview-table'),
   previewNotes: $('#fl-preview-notes'),
+  followupOutput: $('#fl-followup-output'),
   logBtn: $('#fl-log-btn'),
   dailyDate: $('#fl-daily-date'),
   dailyTable: $('#fl-daily-table'),
@@ -1288,6 +1309,7 @@ function showTab(name) {
     if (!leave) return false;
     resetGymDraft();
   }
+  if (visiblePanelName() === 'logging' && name !== 'logging') clearMealConvo();
   els.tabs.forEach((t) => {
     const active = t.dataset.tab === name;
     t.setAttribute('aria-selected', active ? 'true' : 'false');
@@ -1593,6 +1615,14 @@ function logMove() {
 
 function submitLog() {
   if (els.logModeSelect && els.logModeSelect.value === 'move') { logMove(); return; }
+  if (mealConvo) {
+    if (mealConvoExpired(mealConvo)) {
+      clearMealConvo();
+    } else if (els.input.value.trim()) {
+      sendFollowUp(els.input.value.trim(), mealConvo);
+      return;
+    }
+  }
   send();
 }
 
@@ -1610,6 +1640,7 @@ async function send() {
 
   els.sendBtn.disabled = true;
   els.preview.hidden = true;
+  if (els.followupOutput) { els.followupOutput.hidden = true; els.followupOutput.innerHTML = ''; }
   setStatus('Calling Gemini…', 'info');
 
   // Library lookup pass — find candidates and inject into prompt.
@@ -1645,13 +1676,155 @@ async function send() {
         if (koalaMode === 'p') {
           const logged = logParsedMeal(result.parsed, input);
           setStatus(`Logged ${logged.name} with ${fmtNum(logged.kcal, 0)} kcal. ${ICON_LEAF}`, 'info');
+          seedMealConvo(result.parsed, input, true);
         } else {
           renderPreview(result.parsed, input);
+          seedMealConvo(result.parsed, input, false);
         }
         return;
       } catch (e) {
         lastErr = e;
         // Only fall back on transient 5xx; bail on auth / quota / format errors.
+        if (!shouldTryNextModel(e) || e.finishReason) throw e;
+      }
+    }
+    throw lastErr;
+  } catch (e) {
+    setStatus(formatError(e) + ` (Tried ${triedModels.join(', ')}.)`, 'error');
+  } finally {
+    els.sendBtn.disabled = false;
+  }
+}
+
+// ============ Conversational follow-up on the last meal estimate ============
+
+function seedMealConvo(parsed, input, committed) {
+  mealConvo = {
+    originalInput: input,
+    rows: parsed.rows,
+    notes: parsed.notes || [],
+    turnCount: 0,
+    startedAt: Date.now(),
+    committed,
+  };
+}
+
+function clearMealConvo() {
+  mealConvo = null;
+  if (els.followupOutput) { els.followupOutput.hidden = true; els.followupOutput.innerHTML = ''; }
+}
+
+function mealConvoExpired(convo) {
+  if (!convo) return true;
+  if (convo.turnCount >= MEAL_CONVO_MAX_TURNS) return true;
+  if (Date.now() - convo.startedAt > MEAL_CONVO_MAX_AGE_MS) return true;
+  return false;
+}
+
+function renderFollowUpExplanation(text) {
+  if (!els.followupOutput) return;
+  els.followupOutput.hidden = false;
+  els.followupOutput.textContent = text;
+}
+
+// Updates the day's most-recently-logged meal in place (same logical meal, adjusted),
+// instead of adding a duplicate — used when a follow-up 'rows' answer arrives after commit.
+function overwriteLastLoggedMeal(rows, sourceInput) {
+  const items = rowsToItems(withComputedTotal((rows || []).filter((r) => r && r.item != null)));
+  const date = selectedDate();
+  const all = loadDaily();
+  const day = all[date];
+  if (!day || !Array.isArray(day.meals) || !day.meals.length) {
+    return logItemsAsMeal(items, sourceInput);
+  }
+  const name = mealNameFromInput(day, sourceInput);
+  day.meals[0] = { ...day.meals[0], name, items };
+  saveDaily(all);
+  renderDaily();
+  return { count: items.length, name, kcal: sumItems(items).kcal };
+}
+
+function handleFollowUpResult(parsed, input, convo) {
+  if (parsed.responseType === 'rows' && Array.isArray(parsed.rows)) {
+    if (parsed.contextReset) {
+      // Unrelated new meal — start over exactly like a fresh send().
+      clearMealConvo();
+      els.input.value = input;
+      if (koalaMode === 'p') {
+        const logged = logParsedMeal(parsed, input);
+        setStatus(`Logged ${logged.name} with ${fmtNum(logged.kcal, 0)} kcal. ${ICON_LEAF}`, 'info');
+        seedMealConvo(parsed, input, true);
+      } else {
+        renderPreview(parsed, input);
+        seedMealConvo(parsed, input, false);
+      }
+      els.input.value = '';
+      return;
+    }
+    convo.rows = parsed.rows;
+    convo.notes = parsed.notes || [];
+    convo.turnCount += 1;
+    if (els.followupOutput) { els.followupOutput.hidden = true; els.followupOutput.innerHTML = ''; }
+    if (convo.committed) {
+      const logged = overwriteLastLoggedMeal(parsed.rows, convo.originalInput);
+      setStatus(`Updated ${logged.name} to ${fmtNum(logged.kcal, 0)} kcal. ${ICON_LEAF}`, 'info');
+    } else {
+      renderPreview(parsed, convo.originalInput);
+    }
+    els.input.value = '';
+    return;
+  }
+  if (parsed.responseType === 'explanation' && parsed.explanation) {
+    convo.turnCount += 1;
+    renderFollowUpExplanation(parsed.explanation);
+    els.input.value = '';
+    setStatus(null);
+    return;
+  }
+  setStatus('Gemini gave an unexpected reply — try rephrasing.', 'error');
+}
+
+async function sendFollowUp(input, convo) {
+  showValidation(null);
+  setStatus(null);
+  if (!currentUser) { setStatus('Sign in to log meals with AI.', 'error'); return; }
+  if (input.length > 2000) { showValidation('Keep under 2000 characters.'); return; }
+
+  els.sendBtn.disabled = true;
+  setStatus('Calling Gemini…', 'info');
+
+  // Always exactly 3 turns (original meal -> reconstructed prior estimate -> this follow-up),
+  // regardless of how many follow-ups have happened — re-estimates from the latest rows each
+  // time, so per-call token cost stays flat instead of growing with the conversation.
+  const contents = [
+    { role: 'user', parts: [{ text: convo.originalInput || '(estimate from the attached image)' }] },
+    { role: 'model', parts: [{ text: JSON.stringify({ rows: convo.rows, notes: convo.notes }) }] },
+    { role: 'user', parts: [{ text: input }] },
+  ];
+
+  const primary = state.model;
+  const chain = [primary, ...FALLBACK_PRIORITY.filter((m) => m !== primary)].slice(0, 3);
+  let lastErr = null;
+  let triedModels = [];
+
+  try {
+    for (let i = 0; i < chain.length; i++) {
+      const model = chain[i];
+      triedModels.push(model);
+      if (i > 0) setStatus(`${chain[0]} failed — falling back to ${model}…`, 'info');
+      try {
+        const opts = { model, systemPrompt: state.systemPrompt, contents, schema: FOOD_FOLLOWUP_SCHEMA };
+        const result = await callGeminiWithRetry(opts);
+        setStatus(null);
+        if (!result.parsed || !result.parsed.responseType) {
+          setStatus(`Gemini (${model}) returned non-JSON or wrong shape. Raw output below.`, 'error');
+          renderRawFallback(result.raw);
+          return;
+        }
+        handleFollowUpResult(result.parsed, input, convo);
+        return;
+      } catch (e) {
+        lastErr = e;
         if (!shouldTryNextModel(e) || e.finishReason) throw e;
       }
     }
@@ -1712,6 +1885,7 @@ function removePreviewRow(index) {
   rows.splice(index, 1);
   if (!rows.length) {
     clearPreviewState();
+    clearMealConvo();
     setStatus('All preview rows removed.', 'info');
     setTimeout(() => setStatus(null), 2000);
     return;
@@ -2030,6 +2204,9 @@ function logItemsAsMeal(items, sourceInput = '') {
   clearFoodImages();
   showValidation(null);
   clearPreviewState();
+  // A committed meal (J-mode log tap, or P-mode direct log) becomes an already-logged
+  // entry — any further follow-up must overwrite it in place, not re-render a preview.
+  if (mealConvo) mealConvo.committed = true;
   return { count: items.length, name, kcal: sumItems(items).kcal };
 }
 
