@@ -12,7 +12,7 @@ Agents must read `AGENTS.md` before working in this project. It records the stan
 
 House rule: use Git identity `cyyaddsg <cyy.addsg@gmail.com>` unless YY explicitly says otherwise.
 
-Live release rule: this `rel/` folder is the source Vercel deploys for M003-1. Do not push `dev/v2` as the live source. The May 21 rentamac `main` commit must remain identical to the claude-migration package unless YY explicitly requests a release.
+Live release rule: Vercel deploys directly from this repo's `main` branch (the whole repo — there is no in-repo `rel/` subfolder). Locally, this repo lives at `git_proj/m003-fitlog-koala/dev/`. The sibling `git_proj/m003-fitlog-koala/rel/` is untracked by git — it is only ever an optional, timestamped backup copy of `dev/`, and is never a deploy source.
 
 ## Local development
 
@@ -44,7 +44,7 @@ For local meal preview, open the header Settings page and paste a Gemini API key
 
 Linked to Vercel project `fitlog-koala` under cyyaddsg-git. Pushes to `main` deploy automatically.
 
-Before pushing, confirm the remote, branch, this `rel/` source folder, and staged diff. Never include unrelated migrated workspace changes.
+Before pushing, confirm the remote, branch, and staged diff. Never include unrelated migrated workspace changes.
 
 ### Required Vercel env vars (production + preview)
 
