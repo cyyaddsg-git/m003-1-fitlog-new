@@ -86,14 +86,14 @@
 </section>
 
 <nav class="fl-tabs" id="fl-tabs-nav" role="tablist" hidden>
-  <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true"><span class="fl-tab-icon" aria-hidden="true">🌿</span><span>FoodLog</span></button>
-  <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true"><svg class="fl-dumbbell-svg" viewBox="0 0 32 20" focusable="false"><path d="M2 7h4v6H2V7Zm6-3h4v12H8V4Zm12 0h4v12h-4V4Zm6 3h4v6h-4V7ZM12 9h8v2h-8V9Z"/></svg></span><span>GymLog</span></button>
-  <button type="button" class="fl-tab" data-tab="momentum" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true">🔥</span><span>Momentum</span></button>
+  <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true"><span class="fl-tab-icon" aria-hidden="true">🌿</span><span>Today</span></button>
+  <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true"><svg class="fl-dumbbell-svg" viewBox="0 0 32 20" focusable="false"><path d="M2 7h4v6H2V7Zm6-3h4v12H8V4Zm12 0h4v12h-4V4Zm6 3h4v6h-4V7ZM12 9h8v2h-8V9Z"/></svg></span><span>GymPlanner</span></button>
+  <button type="button" class="fl-tab" data-tab="momentum" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true">🔥</span><span>History</span></button>
 </nav>
 
 <main id="fl-main" hidden>
 
-<!-- ============ FoodLog tab ============ -->
+<!-- ============ Today tab ============ -->
 <section class="fl-panel" data-panel="logging" role="tabpanel">
 
   <header class="fl-food-hero">
@@ -170,7 +170,7 @@
   <details class="fl-library-section" id="fl-library-food-section">
     <summary>Custom Food <span id="fl-library-food-count">0/1000</span></summary>
     <div class="fl-library-food-list" id="fl-library-table"></div>
-    <p class="fl-empty" id="fl-library-empty" hidden>No custom food yet — add items from FoodLog preview rows.</p>
+    <p class="fl-empty" id="fl-library-empty" hidden>No custom food yet — add items from Today preview rows.</p>
   </details>
   <details class="fl-library-section" id="fl-library-exercise-section">
     <summary>Custom Exercise <span id="fl-gym-custom-count">0/10</span></summary>
@@ -182,7 +182,7 @@
   </details>
 </section>
 
-<!-- ============ GymLog tab ============ -->
+<!-- ============ GymPlanner tab ============ -->
 <section class="fl-panel" data-panel="gym" role="tabpanel" hidden>
 
   <section class="fl-gym-summary" id="fl-gym-summary" aria-label="Workout summary"></section>
@@ -244,7 +244,7 @@
   </div>
 </section>
 
-<!-- ============ Momentum tab ============ -->
+<!-- ============ History tab ============ -->
 <section class="fl-panel" data-panel="momentum" role="tabpanel" hidden>
   <section class="fl-momentum-summary" id="fl-momentum-summary" aria-label="Monthly momentum summary"></section>
   <div class="fl-momentum-month" id="fl-momentum-month"></div>
