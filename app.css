@@ -1348,6 +1348,9 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
 .fl-table td.fl-num,
 .fl-table th.fl-num { text-align: right; }
 .fl-table tr.fl-total td { font-weight: 700; background: #eef2ff; }
+.fl-history-list { display: flex; flex-direction: column; }
+.fl-history-month .fl-table-wrap { margin-top: 8px; }
+.fl-history-table th, .fl-history-table td { padding: 5px 7px; }
 
 .fl-row-add-btn {
   background: transparent;

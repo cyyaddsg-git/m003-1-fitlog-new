@@ -267,9 +267,12 @@
 
 <!-- ============ History tab ============ -->
 <section class="fl-panel" data-panel="momentum" role="tabpanel" hidden>
-  <section class="fl-momentum-summary" id="fl-momentum-summary" aria-label="Monthly momentum summary"></section>
-  <div class="fl-momentum-month" id="fl-momentum-month"></div>
-  <div class="fl-momentum-calendar" id="fl-momentum-calendar" aria-label="Monthly food and active day calendar"></div>
+  <div class="fl-history-list" id="fl-history-list" aria-label="History, grouped by month"></div>
+
+  <!-- Calendar view (current month only) — kept for a future view-toggle task, not shown yet -->
+  <section class="fl-momentum-summary" id="fl-momentum-summary" aria-label="Monthly momentum summary" hidden></section>
+  <div class="fl-momentum-month" id="fl-momentum-month" hidden></div>
+  <div class="fl-momentum-calendar" id="fl-momentum-calendar" aria-label="Monthly food and active day calendar" hidden></div>
 </section>
 
 <!-- ============ Profile page (reachable only via header avatar) ============ -->

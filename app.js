@@ -19,7 +19,6 @@ const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_LIBRARY_SEED = `${STORAGE_PREFIX}_librarySeedVersion`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
 const KEY_MOVE = `${STORAGE_PREFIX}_moveLog`;
-const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
 const KEY_GYM = `${STORAGE_PREFIX}_gymLog`;
 const KEY_GYM_FAVS = `${STORAGE_PREFIX}_gymFavorites`;
 const KEY_GYM_CUSTOMS = `${STORAGE_PREFIX}_gymCustomExercises`;
@@ -480,13 +479,6 @@ function loadDaily() { return safeLS.getJSON(KEY_DAILY, {}); }
 function saveDaily(d) {
   safeLS.setJSON(KEY_DAILY, d);
   syncToFirestore('dailyLog', d);
-}
-function loadHistory() { return safeLS.getJSON(KEY_HISTORY, []); }
-function saveHistory(h) {
-  // Keep up to a year of recent foods; daily/gym/body logs are never pruned.
-  const pruned = h.slice(0, 365);
-  safeLS.setJSON(KEY_HISTORY, pruned);
-  syncToFirestore('foodHistory', pruned);
 }
 function loadGym() { return safeLS.getJSON(KEY_GYM, {}); }
 function saveGym(g) {
@@ -1024,10 +1016,7 @@ const els = {
   dailyTable: $('#fl-daily-table'),
   logDayBtn: $('#fl-log-day-btn'),
   clearDayBtn: $('#fl-clear-day-btn'),
-  historyTable: $('#fl-history-table'),
-  historyEmpty: $('#fl-history-empty'),
-  exportHistoryBtn: $('#fl-export-history-btn'),
-  clearHistoryBtn: $('#fl-clear-history-btn'),
+  historyList: $('#fl-history-list'),
   libraryCount: $('#fl-library-count'),
   libraryFoodCount: $('#fl-library-food-count'),
   libraryTable: $('#fl-library-table'),
@@ -1309,7 +1298,7 @@ function showTab(name) {
   if (name === 'logging') renderDaily();
   if (name === 'library') renderLibrary();
   if (name === 'gym') renderGym();
-  if (name === 'momentum') renderMomentum();
+  if (name === 'momentum') renderHistoryList();
   if (name === 'profile') updateProfileUI();
   if (name === 'settings') loadSettingsIntoUI();
   return true;
@@ -2383,30 +2372,6 @@ function renderDaily() {
   const stack = els.dailyTable;
   stack.innerHTML = '';
   stack.appendChild(renderStomach(date, meals));
-
-  // Auto-sync today's totals → Food History
-  const hasAny = NUMERIC_COLS.some((k) => dayTotal[k] > 0);
-  if (hasAny) {
-    const targetObj = targetForDate(date);
-    const entry = {
-      date,
-      target: targetObj ? targetObj.kcal : null,
-      kcal: dayTotal.kcal, p: dayTotal.p, f: dayTotal.f, c: dayTotal.c, su: dayTotal.su, fb: dayTotal.fb,
-      savedAt: new Date().toISOString(),
-    };
-    const hist = loadHistory();
-    const idx = hist.findIndex((h) => h.date === date);
-    if (idx >= 0) hist[idx] = entry; else hist.push(entry);
-    hist.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-    saveHistory(hist);
-    renderHistory();
-  } else {
-    const hist = loadHistory();
-    if (hist.some((h) => h.date === date)) {
-      saveHistory(hist.filter((h) => h.date !== date));
-      renderHistory();
-    }
-  }
 }
 
 els.clearDayBtn.addEventListener('click', () => {
@@ -2415,10 +2380,7 @@ els.clearDayBtn.addEventListener('click', () => {
   const all = loadDaily();
   delete all[date];
   saveDaily(all);
-  const hist = loadHistory().filter((h) => h.date !== date);
-  saveHistory(hist);
   renderDaily();
-  renderHistory();
 });
 
 els.dailyDate.addEventListener('change', () => {
@@ -3654,7 +3616,105 @@ function renderMomentumStat(value, icon, label) {
   return item;
 }
 
-function renderMomentum() {
+function monthLabel(monthStr) {
+  const [y, m] = monthStr.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+function renderHistoryList() {
+  if (!els.historyList) return;
+  const daily = loadDaily();
+  const move = loadMove();
+  const dates = new Set([...Object.keys(daily), ...Object.keys(move)]);
+
+  const rows = Array.from(dates).map((date) => {
+    const mealTotal = dayTotals(getDay(daily, date));
+    const moveKcal = moveDayTotal(getMoveDay(move, date));
+    const target = targetForDate(date);
+    return {
+      date,
+      goalKcal: target ? target.kcal : null,
+      netKcal: mealTotal.kcal + moveKcal,
+      moveKcal,
+      mealKcal: mealTotal.kcal,
+      p: mealTotal.p, f: mealTotal.f, c: mealTotal.c, su: mealTotal.su, fb: mealTotal.fb,
+    };
+  }).filter((r) => r.mealKcal > 0 || r.moveKcal !== 0);
+  rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+  els.historyList.innerHTML = '';
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'fl-empty';
+    empty.textContent = 'No history logged yet.';
+    els.historyList.appendChild(empty);
+    return;
+  }
+
+  const byMonth = new Map();
+  rows.forEach((r) => {
+    const month = r.date.slice(0, 7);
+    if (!byMonth.has(month)) byMonth.set(month, []);
+    byMonth.get(month).push(r);
+  });
+  const months = Array.from(byMonth.keys()).sort((a, b) => (a < b ? 1 : -1));
+
+  months.forEach((month, idx) => {
+    const details = document.createElement('details');
+    details.className = 'fl-library-section fl-history-month';
+    if (idx === 0) details.open = true;
+    const summary = document.createElement('summary');
+    summary.textContent = monthLabel(month);
+    details.appendChild(summary);
+
+    const table = document.createElement('table');
+    table.className = 'fl-table fl-history-table';
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    ['Date', 'Goal', 'Net', 'Move', 'Meal', 'P', 'F', 'C', 'Su', 'Fb'].forEach((h) => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      if (h !== 'Date') th.classList.add('fl-num');
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    byMonth.get(month).forEach((r) => {
+      const tr = document.createElement('tr');
+      const dateTd = document.createElement('td');
+      dateTd.textContent = r.date.slice(8, 10);
+      tr.appendChild(dateTd);
+      [
+        r.goalKcal != null ? fmtNum(r.goalKcal, 0) : '—',
+        fmtNum(r.netKcal, 0),
+        r.moveKcal ? `-${fmtNum(Math.abs(r.moveKcal), 0)}` : '0',
+        fmtNum(r.mealKcal, 0),
+        fmtNum(r.p, 0),
+        fmtNum(r.f, 0),
+        fmtNum(r.c, 0),
+        fmtNum(r.su, 0),
+        fmtNum(r.fb, 0),
+      ].forEach((val) => {
+        const td = document.createElement('td');
+        td.className = 'fl-num';
+        td.textContent = val;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    const wrap = document.createElement('div');
+    wrap.className = 'fl-table-wrap';
+    wrap.appendChild(table);
+    details.appendChild(wrap);
+    els.historyList.appendChild(details);
+  });
+}
+
+// Calendar view (current-month only) — kept for a future toggle, not wired into the UI yet.
+function renderHistoryCalendar() {
   if (!els.momentumSummary || !els.momentumMonth || !els.momentumCalendar) return;
   const now = new Date();
   const year = now.getFullYear();
@@ -3976,8 +4036,6 @@ function renderGymFavLibrary() {
 
 // ============ Food History ============
 
-const HIST_COLS = ['date', 'target', 'kcal', 'p', 'f', 'c', 'su', 'fb'];
-
 function dayTotals(day) {
   const t = { kcal: 0, p: 0, f: 0, c: 0, su: 0, fb: 0 };
   dayMeals(day).forEach((meal) => {
@@ -3985,113 +4043,6 @@ function dayTotals(day) {
     NUMERIC_COLS.forEach((k) => { t[k] += sub[k]; });
   });
   return t;
-}
-
-function logDay() {
-  const date = selectedDate();
-  const all = loadDaily();
-  const day = getDay(all, date);
-  const totals = dayTotals(day);
-
-  const targetObj = targetForDate(date);
-  const targetKcal = targetObj ? targetObj.kcal : null;
-
-  const hasAny = NUMERIC_COLS.some((k) => totals[k] > 0);
-  if (!hasAny) {
-    setStatus('Nothing to snapshot — log a meal first.', 'error');
-    setTimeout(() => setStatus(null), 2500);
-    return;
-  }
-
-  const entry = {
-    date,
-    target: targetKcal,
-    kcal: totals.kcal,
-    p: totals.p,
-    f: totals.f,
-    c: totals.c,
-    su: totals.su,
-    fb: totals.fb,
-    savedAt: new Date().toISOString(),
-  };
-
-  const hist = loadHistory();
-  const idx = hist.findIndex((h) => h.date === date);
-  if (idx >= 0) hist[idx] = entry; else hist.push(entry);
-  hist.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  saveHistory(hist);
-
-  renderHistory();
-  setStatus(`Snapshot saved for ${date}.`, 'info');
-  setTimeout(() => setStatus(null), 2500);
-}
-
-function renderHistory() {
-  if (!els.historyTable || !els.historyEmpty) return;
-  const hist = loadHistory();
-  const tbl = els.historyTable;
-  tbl.innerHTML = '';
-
-  if (!hist.length) {
-    els.historyEmpty.hidden = false;
-    return;
-  }
-  els.historyEmpty.hidden = true;
-
-  const thead = document.createElement('thead');
-  const trh = document.createElement('tr');
-  HIST_COLS.forEach((c) => {
-    const th = document.createElement('th');
-    th.textContent = c === 'target' ? 'target kcal' : c;
-    if (c !== 'date') th.classList.add('fl-num');
-    trh.appendChild(th);
-  });
-  const thDel = document.createElement('th');
-  trh.appendChild(thDel);
-  thead.appendChild(trh);
-  tbl.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-  hist.forEach((entry) => {
-    const tr = document.createElement('tr');
-    HIST_COLS.forEach((c) => {
-      const td = document.createElement('td');
-      const v = entry[c];
-      if (c === 'date') {
-        td.textContent = String(v ?? '');
-      } else if (c === 'target') {
-        td.classList.add('fl-num');
-        td.textContent = v == null || v === '' ? '—' : fmtNum(v, 0);
-      } else {
-        td.classList.add('fl-num');
-        td.textContent = c === 'kcal' ? fmtNum(v, 0) : fmtNum(v, 1);
-      }
-      tr.appendChild(td);
-    });
-    const tdDel = document.createElement('td');
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'fl-row-del-btn';
-    del.textContent = '×';
-    del.title = 'Delete snapshot';
-    del.addEventListener('click', () => {
-      const cur = loadHistory().filter((h) => h.date !== entry.date);
-      saveHistory(cur);
-      renderHistory();
-    });
-    tdDel.appendChild(del);
-    tr.appendChild(tdDel);
-    tbody.appendChild(tr);
-  });
-  tbl.appendChild(tbody);
-}
-
-if (els.clearHistoryBtn) {
-  els.clearHistoryBtn.addEventListener('click', () => {
-    if (!confirm('Clear all Food History snapshots? This cannot be undone.')) return;
-    saveHistory([]);
-    renderHistory();
-  });
 }
 
 // ============ CSV export ============
@@ -4163,21 +4114,6 @@ function exportGymCSV() {
   downloadCSV(`fitlog_gym_${date}.csv`, rows);
 }
 
-function exportHistoryCSV() {
-  const hist = loadHistory();
-  const rows = [['date', 'target_kcal', 'kcal', 'p', 'f', 'c', 'su', 'fb']];
-  hist.forEach((e) => {
-    rows.push([
-      e.date,
-      e.target == null || e.target === '' ? '' : fmtNum(e.target, 0),
-      fmtNum(e.kcal, 0), fmtNum(e.p, 1), fmtNum(e.f, 1),
-      fmtNum(e.c, 1), fmtNum(e.su, 1), fmtNum(e.fb, 1),
-    ]);
-  });
-  downloadCSV('fitlog_food_history.csv', rows);
-}
-
-if (els.exportHistoryBtn) els.exportHistoryBtn.addEventListener('click', exportHistoryCSV);
 
 // ============ Authentication ============
 
@@ -4239,7 +4175,6 @@ async function syncAllToFirestore() {
   await syncToFirestore('library', loadLibrary());
   await syncToFirestore('dailyLog', loadDaily());
   await syncToFirestore('moveLog', loadMove());
-  await syncToFirestore('foodHistory', loadHistory());
   await syncToFirestore('gymLog', loadGym());
   await syncToFirestore('gymFavorites', loadGymFavs());
   await syncToFirestore('gymCustomExercises', loadGymCustoms());
@@ -4282,9 +4217,6 @@ async function syncFromFirestore() {
         const merged = { ...local, ...data };
         saveDaily(merged);
         hasChanges = true;
-      } else if (category === 'foodHistory') {
-        saveHistory(data);
-        hasChanges = true;
       } else if (category === 'moveLog') {
         const local = loadMove();
         const merged = { ...local, ...data };
@@ -4315,10 +4247,9 @@ async function syncFromFirestore() {
     
     if (hasChanges) {
       renderDaily();
-      renderHistory();
       renderLibrary();
       renderGym();
-      renderMomentum();
+      renderHistoryList();
       loadProfileIntoUI();
       syncLatestWeightToProfile();
     }
