@@ -87,7 +87,7 @@
 
 <nav class="fl-tabs" id="fl-tabs-nav" role="tablist" hidden>
   <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true"><span class="fl-tab-icon" aria-hidden="true">🌿</span><span>Today</span></button>
-  <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true"><svg class="fl-dumbbell-svg" viewBox="0 0 32 20" focusable="false"><path d="M2 7h4v6H2V7Zm6-3h4v12H8V4Zm12 0h4v12h-4V4Zm6 3h4v6h-4V7ZM12 9h8v2h-8V9Z"/></svg></span><span>GymPlanner</span></button>
+  <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true"><svg class="fl-dumbbell-svg" viewBox="0 0 32 20" focusable="false"><path d="M2 7h4v6H2V7Zm6-3h4v12H8V4Zm12 0h4v12h-4V4Zm6 3h4v6h-4V7ZM12 9h8v2h-8V9Z"/></svg></span><span>Planner</span></button>
   <button type="button" class="fl-tab" data-tab="momentum" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true">🔥</span><span>History</span></button>
 </nav>
 
@@ -182,8 +182,24 @@
   </details>
 </section>
 
-<!-- ============ GymPlanner tab ============ -->
+<!-- ============ Planner tab ============ -->
 <section class="fl-panel" data-panel="gym" role="tabpanel" hidden>
+
+  <div class="fl-planner-subnav" role="group" aria-label="Planner section">
+    <button type="button" class="fl-planner-subtab-btn" id="fl-planner-diet-btn" data-subtab="diet" aria-label="Diet Plan">Diet Plan</button>
+    <button type="button" class="fl-planner-subtab-btn fl-active" id="fl-planner-gym-btn" data-subtab="gym" aria-label="Gym Plan">Gym Plan</button>
+  </div>
+
+  <!-- Diet Plan: placeholder — later phase sets Goal kcal (Today) from bio data + fat-loss target + window + gym activity -->
+  <section class="fl-planner-diet" id="fl-planner-diet" hidden>
+    <div class="fl-planner-placeholder">
+      <h2>Diet Plan</h2>
+      <p>Coming soon: set a fat-loss target and time window, and this will design your carb cycling, cheat days, and macro targets from your bio data and Gym Plan activity — the resulting Goal kcal will feed directly into Today.</p>
+    </div>
+  </section>
+
+  <!-- Gym Plan: existing exercise planning UI, decoupled from daily kcal totals -->
+  <section class="fl-planner-gym" id="fl-planner-gym">
 
   <section class="fl-gym-summary" id="fl-gym-summary" aria-label="Workout summary"></section>
 
@@ -242,6 +258,7 @@
       <div class="fl-gym-picker-body" id="fl-gym-picker-body"></div>
     </section>
   </div>
+  </section>
 </section>
 
 <!-- ============ History tab ============ -->

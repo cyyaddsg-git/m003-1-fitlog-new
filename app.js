@@ -1029,6 +1029,10 @@ const els = {
   gymPickerBody: $('#fl-gym-picker-body'),
   gymPickerBack: $('#fl-gym-picker-back'),
   gymPickerClose: $('#fl-gym-picker-close'),
+  plannerDietBtn: $('#fl-planner-diet-btn'),
+  plannerGymBtn: $('#fl-planner-gym-btn'),
+  plannerDietPanel: $('#fl-planner-diet'),
+  plannerGymPanel: $('#fl-planner-gym'),
   gymSavedTime: $('#fl-gym-saved-time'),
   gymNoteShell: $('#fl-gym-note-shell'),
   gymClearDay: $('#fl-gym-clear-day'),
@@ -3707,6 +3711,18 @@ els.gymDate.addEventListener('change', () => {
   renderGym();
 });
 els.gymClearDay.addEventListener('click', clearGymDay);
+
+// ============ Planner sub-nav (Diet Plan / Gym Plan) ============
+function showPlannerSubtab(name) {
+  const next = name === 'diet' ? 'diet' : 'gym';
+  if (els.plannerDietBtn) els.plannerDietBtn.classList.toggle('fl-active', next === 'diet');
+  if (els.plannerGymBtn) els.plannerGymBtn.classList.toggle('fl-active', next === 'gym');
+  if (els.plannerDietPanel) els.plannerDietPanel.hidden = next !== 'diet';
+  if (els.plannerGymPanel) els.plannerGymPanel.hidden = next !== 'gym';
+}
+if (els.plannerDietBtn) els.plannerDietBtn.addEventListener('click', () => showPlannerSubtab('diet'));
+if (els.plannerGymBtn) els.plannerGymBtn.addEventListener('click', () => showPlannerSubtab('gym'));
+
 window.addEventListener('beforeunload', (ev) => {
   if (!gymHasUnsavedChanges()) return;
   ev.preventDefault();

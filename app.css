@@ -685,6 +685,48 @@ body.fl-whatsnew-open { overflow: hidden; }
   color: #0d1117;
   font-weight: 750;
 }
+.fl-planner-subnav {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  padding: 3px;
+  background: #111820;
+  margin-bottom: 12px;
+}
+.fl-planner-subtab-btn {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fl-muted);
+  min-height: 28px;
+  padding: 6px 16px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.fl-planner-subtab-btn.fl-active {
+  background: var(--fl-accent);
+  color: #0d1117;
+  font-weight: 750;
+}
+.fl-planner-placeholder {
+  border: 1px dashed var(--fl-border);
+  border-radius: var(--fl-radius);
+  padding: 24px 20px;
+  text-align: center;
+  color: var(--fl-muted);
+}
+.fl-planner-placeholder h2 {
+  color: var(--fl-fg);
+  margin: 0 0 8px;
+}
+.fl-planner-placeholder p {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 14px;
+}
 .fl-chat-composer {
   grid-column: 1 / -1;
   display: grid;
