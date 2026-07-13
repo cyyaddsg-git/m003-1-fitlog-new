@@ -521,6 +521,31 @@ body.fl-whatsnew-open { overflow: hidden; }
   line-height: 1;
   vertical-align: baseline;
 }
+.fl-kcal-triplet {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 6px 0 2px;
+}
+.fl-kcal-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fl-kcal-stat-label {
+  color: #d8d0c1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.fl-kcal-stat strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--fl-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
 .fl-kcal-bar {
   height: 14px;
   margin-top: 14px;
@@ -737,6 +762,48 @@ body.fl-whatsnew-open { overflow: hidden; }
   text-align: center;
   padding: 7px 10px;
 }
+.fl-move-icon {
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #475565;
+  border-radius: 999px;
+  background: rgba(17, 29, 43, 0.72);
+  font-size: 18px;
+  line-height: 1;
+}
+.fl-ai-card input[type="number"] {
+  width: 100%;
+  height: 42px;
+  min-height: 42px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  padding: 11px 48px 9px 14px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--fl-fg);
+  background: rgba(17, 20, 24, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  -moz-appearance: textfield;
+}
+.fl-ai-card input[type="number"]::placeholder {
+  color: var(--fl-fg);
+  font: inherit;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+  opacity: 1;
+}
+.fl-ai-card input[type="number"]::-webkit-outer-spin-button,
+.fl-ai-card input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 .fl-image-drop:hover {
   border-color: var(--fl-accent);
   color: var(--fl-fg);
@@ -818,7 +885,9 @@ body.fl-whatsnew-open { overflow: hidden; }
 body[data-theme="light"] .fl-food-controls select,
 body[data-theme="light"] .fl-koala-mode,
 body[data-theme="light"] .fl-ai-card textarea,
+body[data-theme="light"] .fl-ai-card input[type="number"],
 body[data-theme="light"] .fl-image-drop,
+body[data-theme="light"] .fl-move-icon,
 body[data-theme="light"] .fl-gym-add-exercise-btn,
 body[data-theme="light"] .fl-log-title .fl-daily-date,
 body[data-theme="light"] .fl-edit-day-row .fl-daily-date,
@@ -1106,7 +1175,7 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
 .fl-stomach-meal-toggle {
   width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 2px 10px;
   padding: 0;
@@ -1120,6 +1189,7 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
 .fl-stomach-meal-toggle::before {
   content: ">";
   grid-row: 1 / span 2;
+  grid-column: 1;
   color: var(--fl-accent);
   font-size: 12px;
   transition: transform 0.16s ease;
@@ -1129,13 +1199,24 @@ body[data-theme="dark"] .fl-theme-mini-btn.fl-next-light {
 }
 .fl-stomach-meal-row strong {
   grid-column: 2;
+  grid-row: 1;
   color: var(--fl-fg);
   font-size: 13px;
 }
-.fl-stomach-meal-row span {
+.fl-stomach-meal-macros {
   grid-column: 2;
+  grid-row: 2;
   color: var(--fl-muted);
-  font-size: 12px;
+  font-size: 11px;
+}
+.fl-stomach-meal-kcal {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--fl-fg);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .fl-stomach-item-row {
   grid-template-columns: 1fr auto;

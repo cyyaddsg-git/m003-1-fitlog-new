@@ -7,7 +7,7 @@
 // ============ Constants ============
 
 const STORAGE_PREFIX = 'm003_1';
-const APP_VERSION = '2.5.1';
+const APP_VERSION = '2.5.2';
 const KEY_LAST_SEEN_VERSION = `${'m003_1'}_lastSeenVersion`;
 const KEY_APIKEY = `${STORAGE_PREFIX}_apiKey`;
 const KEY_MODEL = `${STORAGE_PREFIX}_model`;
@@ -18,6 +18,7 @@ const KEY_THEME = `${STORAGE_PREFIX}_theme`;
 const KEY_LIBRARY = `${STORAGE_PREFIX}_library`;
 const KEY_LIBRARY_SEED = `${STORAGE_PREFIX}_librarySeedVersion`;
 const KEY_DAILY = `${STORAGE_PREFIX}_dailyLog`;
+const KEY_MOVE = `${STORAGE_PREFIX}_moveLog`;
 const KEY_HISTORY = `${STORAGE_PREFIX}_foodHistory`;
 const KEY_GYM = `${STORAGE_PREFIX}_gymLog`;
 const KEY_GYM_FAVS = `${STORAGE_PREFIX}_gymFavorites`;
@@ -491,6 +492,18 @@ function loadGym() { return safeLS.getJSON(KEY_GYM, {}); }
 function saveGym(g) {
   safeLS.setJSON(KEY_GYM, g);
   syncToFirestore('gymLog', g);
+}
+function loadMove() { return safeLS.getJSON(KEY_MOVE, {}); }
+function saveMove(m) {
+  safeLS.setJSON(KEY_MOVE, m);
+  syncToFirestore('moveLog', m);
+}
+function getMoveKcal(date) { return num(loadMove()[date]); }
+function setMoveKcal(date, kcal) {
+  const all = loadMove();
+  const n = num(kcal);
+  if (n > 0) all[date] = n; else delete all[date];
+  saveMove(all);
 }
 function loadGymFavs() { return safeLS.getJSON(KEY_GYM_FAVS, []); }
 function saveGymFavs(favs) {
@@ -990,6 +1003,9 @@ const els = {
   panels: Array.from(document.querySelectorAll('.fl-panel')),
   input: $('#fl-input'),
   sendBtn: $('#fl-send-btn'),
+  moveInput: $('#fl-move-input'),
+  moveLogBtn: $('#fl-move-log-btn'),
+  moveValidation: $('#fl-move-validation'),
   modeButtons: Array.from(document.querySelectorAll('.fl-mode-btn')),
   imageInputs: [$('#fl-image-0')],
   imageDrops: Array.from(document.querySelectorAll('.fl-image-drop')),
@@ -1271,7 +1287,7 @@ function showTab(name) {
     setSyncStatus('Save metrics to unlock FitLog');
   }
   if (visiblePanelName() === 'gym' && name !== 'gym' && gymHasUnsavedChanges()) {
-    const leave = confirm('GymLog has unsaved changes. Leave without saving?');
+    const leave = confirm('GymPlanner has unsaved changes. Leave without saving?');
     if (!leave) return false;
     resetGymDraft();
   }
@@ -1561,6 +1577,35 @@ els.imageInputs.forEach((input, idx) => {
     }
   });
   renderFoodImageSlot(idx);
+});
+
+// ============ KOALA MOVE (active kcal) ============
+
+function showMoveValidation(msg) {
+  if (!els.moveValidation) return;
+  if (!msg) { els.moveValidation.hidden = true; els.moveValidation.textContent = ''; return; }
+  els.moveValidation.hidden = false;
+  els.moveValidation.textContent = msg;
+}
+
+function logMoveKcal() {
+  showMoveValidation(null);
+  const raw = els.moveInput.value.trim();
+  const n = num(raw);
+  if (raw !== '' && (!Number.isFinite(n) || n < 0)) {
+    showMoveValidation('Enter a positive kcal number.');
+    return;
+  }
+  const date = selectedDate();
+  setMoveKcal(date, n);
+  renderDaily();
+  setStatus(n > 0 ? `${fmtNum(n, 0)} active kcal is logged.` : 'Active kcal cleared.', 'info');
+  setTimeout(() => setStatus(null), 2000);
+}
+
+els.moveLogBtn.addEventListener('click', logMoveKcal);
+els.moveInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); logMoveKcal(); }
 });
 
 // ============ Send + preview ============
@@ -2147,10 +2192,8 @@ function targetModeShort(mode) {
   return { normal: 'N', high: 'H', diet: 'D', custom: 'C', none: '-' }[mode] || 'N';
 }
 
-function renderNutritionBoard(total, target) {
+function renderNutritionBoard(total, moveKcal, target) {
   if (!els.nutritionBoard) return;
-  const remain = target ? target.kcal - total.kcal : null;
-  const progress = dailyProgress(total, target);
   els.nutritionBoard.innerHTML = '';
 
   const hero = document.createElement('article');
@@ -2165,23 +2208,25 @@ function renderNutritionBoard(total, target) {
     targetPicker.appendChild(display);
     hero.appendChild(targetPicker);
   }
-  const value = document.createElement('strong');
-  value.appendChild(document.createTextNode(target ? `${fmtNum(total.kcal, 0)} / ${fmtNum(target.kcal, 0)}` : fmtNum(total.kcal, 0)));
-  const unit = document.createElement('span');
-  unit.className = 'fl-kcal-unit';
-  unit.textContent = 'KCAL';
-  value.appendChild(unit);
-  const remainEl = document.createElement('span');
-  remainEl.className = 'fl-kcal-remain';
-  remainEl.textContent = target
-    ? (remain >= 0 ? `${fmtNum(remain, 0)} left` : `${fmtNum(Math.abs(remain), 0)} over`)
-    : 'Set a target to track remain';
-  const bar = document.createElement('div');
-  bar.className = 'fl-kcal-bar';
-  const fill = document.createElement('span');
-  fill.style.width = `${progress}%`;
-  fill.className = target && total.kcal > target.kcal ? 'fl-over' : '';
-  bar.appendChild(fill);
+
+  // Plain info display only — Goal / Food / Move, no over/under calculation or bar.
+  const triplet = document.createElement('div');
+  triplet.className = 'fl-kcal-triplet';
+  [
+    ['Goal', target ? fmtNum(target.kcal, 0) : '—'],
+    ['Eat', fmtNum(total.kcal, 0)],
+    ['Move', moveKcal ? `-${fmtNum(Math.abs(moveKcal), 0)}` : '0'],
+  ].forEach(([label, val]) => {
+    const stat = document.createElement('div');
+    stat.className = 'fl-kcal-stat';
+    const lbl = document.createElement('span');
+    lbl.className = 'fl-kcal-stat-label';
+    lbl.textContent = label;
+    const strong = document.createElement('strong');
+    strong.textContent = val;
+    stat.append(lbl, strong);
+    triplet.appendChild(stat);
+  });
 
   const macros = document.createElement('div');
   macros.className = 'fl-macro-line';
@@ -2195,7 +2240,7 @@ function renderNutritionBoard(total, target) {
     macros.appendChild(renderMetricChip(label, key, total, target));
   });
 
-  hero.append(value, remainEl, bar, macros);
+  hero.append(triplet, macros);
   els.nutritionBoard.append(hero);
 }
 
@@ -2243,9 +2288,14 @@ function renderStomach(date, meals) {
     mealToggle.setAttribute('aria-expanded', mealOpen ? 'true' : 'false');
     const title = document.createElement('strong');
     title.textContent = meal.name || `Meal ${mealIdx + 1}`;
-    const meta = document.createElement('span');
-    meta.textContent = `${fmtNum(subtotal.kcal, 0)} kcal · ${(meal.items || []).length} item${(meal.items || []).length === 1 ? '' : 's'}`;
-    mealToggle.append(title, meta);
+    const itemCount = (meal.items || []).length;
+    const macroLine = document.createElement('span');
+    macroLine.className = 'fl-stomach-meal-macros';
+    macroLine.textContent = `P ${fmtNum(subtotal.p, 1)} · F ${fmtNum(subtotal.f, 1)} · C ${fmtNum(subtotal.c, 1)} · Su ${fmtNum(subtotal.su, 1)} · Fb ${fmtNum(subtotal.fb, 1)} · ${itemCount} item${itemCount === 1 ? '' : 's'}`;
+    const kcalEl = document.createElement('span');
+    kcalEl.className = 'fl-stomach-meal-kcal';
+    kcalEl.textContent = `${fmtNum(subtotal.kcal, 0)} kcal`;
+    mealToggle.append(title, macroLine, kcalEl);
     mealToggle.addEventListener('click', () => {
       if (expandedMeals.has(mealKey)) expandedMeals.delete(mealKey);
       else expandedMeals.add(mealKey);
@@ -2313,7 +2363,9 @@ function renderDaily() {
   });
 
   const target = targetForDate(date);
-  renderNutritionBoard(dayTotal, target);
+  const moveKcal = getMoveKcal(date);
+  renderNutritionBoard(dayTotal, moveKcal, target);
+  if (els.moveInput) els.moveInput.value = moveKcal ? String(moveKcal) : '';
 
   const stack = els.dailyTable;
   stack.innerHTML = '';
@@ -2346,7 +2398,7 @@ function renderDaily() {
 
 els.clearDayBtn.addEventListener('click', () => {
   const date = selectedDate();
-  if (!confirm(`Reset FoodLog for ${date}? Items already logged will be removed.`)) return;
+  if (!confirm(`Reset DailyLog for ${date}? Items already logged will be removed.`)) return;
   const all = loadDaily();
   delete all[date];
   saveDaily(all);
@@ -2361,7 +2413,7 @@ els.dailyDate.addEventListener('change', () => {
   renderDaily();
 });
 
-// ============ GymLog tab ============
+// ============ GymPlanner tab ============
 
 function selectedGymActivity() {
   const raw = els.gymActivity.value || '';
@@ -3539,7 +3591,7 @@ function renderGym() {
   renderGymSavedTime(day);
   if (els.gymLockBtn) {
     els.gymLockBtn.textContent = gymLocked ? 'Modify' : 'Save';
-    els.gymLockBtn.title = gymLocked ? 'Modify GymLog' : 'Save GymLog';
+    els.gymLockBtn.title = gymLocked ? 'Modify GymPlanner' : 'Save GymPlanner';
     els.gymLockBtn.setAttribute('aria-pressed', gymLocked ? 'true' : 'false');
     els.gymLockBtn.classList.toggle('fl-gym-unlock-btn', gymLocked);
   }
@@ -3597,7 +3649,6 @@ function renderMomentum() {
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const firstWeekday = new Date(year, monthIndex, 1).getDay();
   const daily = loadDaily();
-  const gym = loadGym();
   const foodByDate = {};
   const moveByDate = {};
   let kcalSum = 0;
@@ -3612,7 +3663,8 @@ function renderMomentum() {
       kcalSum += kcal;
       kcalDays += 1;
     }
-    const move = gymDaySummary(gym[iso]).move;
+    // Move kcal now comes from DailyLog's own Move entry, never from GymPlanner.
+    const move = getMoveKcal(iso);
     moveByDate[iso] = move;
     if (move > 0) activeDays += 1;
   }
@@ -3671,7 +3723,7 @@ function renderMomentum() {
 
 function clearGymDay() {
   const date = selectedGymDate || todayISO();
-  if (!confirm(`Reset GymLog for ${date}? Workout rows will return to Add exercise.`)) return;
+  if (!confirm(`Reset GymPlanner for ${date}? Workout rows will return to Add exercise.`)) return;
   const all = gymDraftData();
   delete all[date];
   saveGym(cloneGymLog(all));
@@ -4161,6 +4213,7 @@ async function syncAllToFirestore() {
   await syncToFirestore('settings', settingsCloudPayload(loadSettings()));
   await syncToFirestore('library', loadLibrary());
   await syncToFirestore('dailyLog', loadDaily());
+  await syncToFirestore('moveLog', loadMove());
   await syncToFirestore('foodHistory', loadHistory());
   await syncToFirestore('gymLog', loadGym());
   await syncToFirestore('gymFavorites', loadGymFavs());
@@ -4206,6 +4259,11 @@ async function syncFromFirestore() {
         hasChanges = true;
       } else if (category === 'foodHistory') {
         saveHistory(data);
+        hasChanges = true;
+      } else if (category === 'moveLog') {
+        const local = loadMove();
+        const merged = { ...local, ...data };
+        saveMove(merged);
         hasChanges = true;
       } else if (category === 'gymLog') {
         const local = loadGym();
@@ -4609,7 +4667,7 @@ if (els.profileSaveCustom) {
   });
 }
 
-// ============ FoodLog Target mode dropdown ============
+// ============ DailyLog Target mode dropdown ============
 
 if (els.dailyTargetMode) {
   els.dailyTargetMode.addEventListener('change', () => {

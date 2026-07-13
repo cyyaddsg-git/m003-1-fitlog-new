@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Fitlog-Koala</title>
-<link rel="stylesheet" href="./app.css?v=2.5.1" />
+<link rel="stylesheet" href="./app.css?v=2.5.2" />
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
@@ -25,36 +25,36 @@
   <div class="fl-whatsnew-card">
     <header class="fl-whatsnew-head">
       <small class="fl-whatsnew-eyebrow">UPDATED</small>
-      <h2 id="fl-whatsnew-title">What's new in <span id="fl-whatsnew-version">v2.5.1</span></h2>
-      <p class="fl-whatsnew-sub">Body composition tracking + your first monthly health report.</p>
+      <h2 id="fl-whatsnew-title">What's new in <span id="fl-whatsnew-version">v2.5.2</span></h2>
+      <p class="fl-whatsnew-sub">DailyLog gets a KOALA MOVE section and a cleaner heading.</p>
     </header>
     <ul class="fl-whatsnew-list">
       <li>
-        <span class="fl-whatsnew-icon" aria-hidden="true">🧬</span>
+        <span class="fl-whatsnew-icon" aria-hidden="true">🔥</span>
         <div>
-          <strong>Body Composition Track</strong>
-          <p>Log your weight, muscle mass and body-fat reading from any scale, every day. The latest weight automatically updates your TDEE targets.</p>
-        </div>
-      </li>
-      <li>
-        <span class="fl-whatsnew-icon" aria-hidden="true">📊</span>
-        <div>
-          <strong>InBody-style scales</strong>
-          <p>See where your weight, muscle mass and body-fat mass sit against clinical zones — Under / Normal / Over / Obese, Athlete / Fit / Average / High — calibrated to your height and gender.</p>
-        </div>
-      </li>
-      <li>
-        <span class="fl-whatsnew-icon" aria-hidden="true">📄</span>
-        <div>
-          <strong>Monthly Health Report</strong>
-          <p>Download a clinician-style PDF, or have it emailed straight to your inbox. Covers body composition trends, nutrition adherence, movement volume — all derived from your own logs.</p>
+          <strong>KOALA MOVE</strong>
+          <p>Log active kcal for the day right above KOALA TABLE — just a number, no AI call needed.</p>
         </div>
       </li>
       <li>
         <span class="fl-whatsnew-icon" aria-hidden="true">🎯</span>
         <div>
-          <strong>Sticky TDEE target</strong>
-          <p>Your last-used target mode (Normal / Diet / High / Custom) carries forward to every new day instead of resetting.</p>
+          <strong>Goal / Eat / Move heading</strong>
+          <p>The daily heading now shows all three plainly, side by side — no more over/under judgment, just the numbers.</p>
+        </div>
+      </li>
+      <li>
+        <span class="fl-whatsnew-icon" aria-hidden="true">🥗</span>
+        <div>
+          <strong>Koala Stomach layout</strong>
+          <p>Each meal's kcal now sits on the right with its macros below, matching how individual food items already looked.</p>
+        </div>
+      </li>
+      <li>
+        <span class="fl-whatsnew-icon" aria-hidden="true">🏋️</span>
+        <div>
+          <strong>FoodLog → DailyLog, GymLog → GymPlanner</strong>
+          <p>Momentum's active-day kcal now comes from DailyLog's own Move entry, not from GymPlanner.</p>
         </div>
       </li>
     </ul>
@@ -86,14 +86,14 @@
 </section>
 
 <nav class="fl-tabs" id="fl-tabs-nav" role="tablist" hidden>
-  <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true"><span class="fl-tab-icon" aria-hidden="true">🌿</span><span>FoodLog</span></button>
-  <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true"><svg class="fl-dumbbell-svg" viewBox="0 0 32 20" focusable="false"><path d="M2 7h4v6H2V7Zm6-3h4v12H8V4Zm12 0h4v12h-4V4Zm6 3h4v6h-4V7ZM12 9h8v2h-8V9Z"/></svg></span><span>GymLog</span></button>
+  <button type="button" class="fl-tab fl-tab-active" data-tab="logging" role="tab" aria-selected="true"><span class="fl-tab-icon" aria-hidden="true">🌿</span><span>DailyLog</span></button>
+  <button type="button" class="fl-tab" data-tab="gym" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true"><svg class="fl-dumbbell-svg" viewBox="0 0 32 20" focusable="false"><path d="M2 7h4v6H2V7Zm6-3h4v12H8V4Zm12 0h4v12h-4V4Zm6 3h4v6h-4V7ZM12 9h8v2h-8V9Z"/></svg></span><span>GymPlanner</span></button>
   <button type="button" class="fl-tab" data-tab="momentum" role="tab" aria-selected="false"><span class="fl-tab-icon" aria-hidden="true">🔥</span><span>Momentum</span></button>
 </nav>
 
 <main id="fl-main" hidden>
 
-<!-- ============ FoodLog tab ============ -->
+<!-- ============ DailyLog tab ============ -->
 <section class="fl-panel" data-panel="logging" role="tabpanel">
 
   <header class="fl-food-hero">
@@ -106,6 +106,22 @@
     </select>
     <section class="fl-nutrition-board" id="fl-nutrition-board" aria-label="Daily nutrition summary"></section>
   </header>
+
+  <section class="fl-ai-card fl-move-card" aria-label="Active kcal move entry">
+    <div class="fl-log-head">
+      <div class="fl-log-title">
+        <h2>KOALA MOVE</h2>
+      </div>
+    </div>
+    <div class="fl-chat-composer">
+      <span class="fl-move-icon" aria-hidden="true">🔥</span>
+      <div class="fl-composer-input">
+        <input type="number" id="fl-move-input" inputmode="numeric" min="0" placeholder="Active Kcal" />
+        <button type="button" class="fl-send-btn" id="fl-move-log-btn" aria-label="Log active kcal">🔥</button>
+      </div>
+    </div>
+    <div class="fl-validation" id="fl-move-validation" hidden></div>
+  </section>
 
   <section class="fl-ai-card" aria-label="AI food estimate">
     <div class="fl-log-head">
@@ -170,7 +186,7 @@
   <details class="fl-library-section" id="fl-library-food-section">
     <summary>Custom Food <span id="fl-library-food-count">0/1000</span></summary>
     <div class="fl-library-food-list" id="fl-library-table"></div>
-    <p class="fl-empty" id="fl-library-empty" hidden>No custom food yet — add items from FoodLog preview rows.</p>
+    <p class="fl-empty" id="fl-library-empty" hidden>No custom food yet — add items from DailyLog preview rows.</p>
   </details>
   <details class="fl-library-section" id="fl-library-exercise-section">
     <summary>Custom Exercise <span id="fl-gym-custom-count">0/10</span></summary>
@@ -182,7 +198,7 @@
   </details>
 </section>
 
-<!-- ============ GymLog tab ============ -->
+<!-- ============ GymPlanner tab ============ -->
 <section class="fl-panel" data-panel="gym" role="tabpanel" hidden>
 
   <section class="fl-gym-summary" id="fl-gym-summary" aria-label="Workout summary"></section>
@@ -415,13 +431,13 @@
 
 <footer class="fl-app-footer">
   <span>Powered by</span>
-  <button type="button" class="fl-footer-link" id="fl-about-link">Koala v2.5.1</button>
+  <button type="button" class="fl-footer-link" id="fl-about-link">Koala v2.5.2</button>
   <span aria-hidden="true">|</span>
-  <a class="fl-footer-link" href="mailto:genalphai.production@gmail.com?subject=Fitlog%20Koala%20feedback%20v2.5.1&body=Dear%20Koala%2C%0A">Feedback to K.</a>
+  <a class="fl-footer-link" href="mailto:genalphai.production@gmail.com?subject=Fitlog%20Koala%20feedback%20v2.5.2&body=Dear%20Koala%2C%0A">Feedback to K.</a>
 </footer>
 
-<script src="./lib/generated_libraries.js?v=2.5.1"></script>
-<script src="./app.js?v=2.5.1"></script>
-<script src="./report.js?v=2.5.1"></script>
+<script src="./lib/generated_libraries.js?v=2.5.2"></script>
+<script src="./app.js?v=2.5.2"></script>
+<script src="./report.js?v=2.5.2"></script>
 </body>
 </html>
