@@ -6,6 +6,10 @@ version: <version>
 agent: <push to live agent name>
 change: <summary>
 
+version: v2.5.3
+agent: Claude
+change: Temporary closure for revamp. index.html replaced by a Renovating page; api/ routes removed. Full app restorable from tag v2.5.2.
+
 version: v2.5.2
 agent: Claude
 change: FoodLog renamed to DailyLog, GymLog renamed to GymPlanner. Added a KOALA MOVE section above KOALA TABLE to log active kcal directly (no AI call). Daily heading now shows Goal / Eat / Move as plain info (no over/under calculation or bar). Koala Stomach meal rows now show kcal on the right with macros below, matching item rows. Momentum's active-day kcal now sources from DailyLog's own Move entries instead of GymPlanner data.
